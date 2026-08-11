@@ -722,15 +722,18 @@ function handleTextProtocol(msg) {
         pushToast("Você é o Host desta partida.");
     }
     else if (msg.startsWith("ASK_HOST:")) {
-        // Formato: ASK_HOST:RequesterToken:Nick:CivID:CivName
         const parts = msg.split(":");
         const rToken = parts[1];
         const rNick = parts[2];
         const rId = parts[3];
-        const rCiv = parts.slice(4).join(":"); // Junta o resto pro caso do nome ter ':'
-
+        const rCiv = parts.slice(4).join(":"); 
+        
+        // Criamos um ID único para este Toast, à prova de falhas
+        const toastId = 'host-toast-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+        
         const container = document.getElementById("toast-container");
         const el = document.createElement("div");
+        el.id = toastId;
         el.className = "toast host-toast";
         el.innerHTML = `
             <div class="host-toast-text">
@@ -738,8 +741,8 @@ function handleTextProtocol(msg) {
                 <span><b>${escapeHtml(rNick)}</b> solicitou assumir <b>${escapeHtml(rCiv)}</b>.</span>
             </div>
             <div class="host-toast-actions">
-                <button class="btn btn-danger" onclick="denyClaim('${rToken}', ${rId}, this.parentElement.parentElement)">Recusar</button>
-                <button class="btn btn-brass" onclick="approveClaim('${rToken}', ${rId}, this.parentElement.parentElement)">Aceitar</button>
+                <button class="btn btn-danger" onclick="window.denyClaim('${rToken}', ${rId}, '${toastId}')">Recusar</button>
+                <button class="btn btn-brass" onclick="window.approveClaim('${rToken}', ${rId}, '${toastId}')">Aceitar</button>
             </div>
         `;
         container.appendChild(el);
@@ -813,24 +816,33 @@ function handleTextProtocol(msg) {
 }
 
 // Funções exclusivas do Host chamadas pelo Toast e pelo Painel
-function approveClaim(token, civId, toastEl) {
-    socket.send(`APPROVE_CLAIM:${token}:${civId}`);
-    toastEl.remove();
-}
-function denyClaim(token, civId, toastEl) {
-    socket.send(`DENY_CLAIM:${token}:${civId}`);
-    toastEl.remove();
-}
-function kickPlayer(token) {
+window.approveClaim = function(token, civId, toastId) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(`APPROVE_CLAIM:${token}:${civId}`);
+    }
+    const toastEl = document.getElementById(toastId);
+    if (toastEl) toastEl.remove();
+};
+
+window.denyClaim = function(token, civId, toastId) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(`DENY_CLAIM:${token}:${civId}`);
+    }
+    const toastEl = document.getElementById(toastId);
+    if (toastEl) toastEl.remove();
+};
+
+window.kickPlayer = function(token) {
     if(confirm("Tem certeza que deseja expulsar este comandante?")) {
         socket.send(`HOST_CMD:KICK:${token}`);
     }
-}
-function forceSpectator(token) {
+};
+
+window.forceSpectator = function(token) {
     if(confirm("Forçar este comandante para o modo espectador e liberar a nação?")) {
         socket.send(`HOST_CMD:FORCE_SPEC:${token}`);
     }
-}
+};
 
 /* ==========================================================
    4. LOBBY E NAÇÕES
