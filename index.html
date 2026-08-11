@@ -26,7 +26,7 @@
   --shadow-lift:0 12px 40px rgba(0,0,0,0.45);
 }
 *{box-sizing:border-box; margin:0; padding:0;}
-html,body{width:100%; height:100%; overflow:hidden;}
+html,body{width:100%; height:100%; overflow:hidden; overscroll-behavior:none;}
 body{
   background:
     radial-gradient(ellipse 900px 600px at 12% -10%, rgba(201,162,75,0.08), transparent 60%),
@@ -146,7 +146,7 @@ button, input{ font-family:inherit; }
     var(--ink-900);
   overflow:hidden;
 }
-canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; z-index:1; }
+canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; z-index:1; touch-action:none; }
 
 /* Overlay superior — status + presença */
 .hud-top{
@@ -180,8 +180,31 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
 .floating-controls{
   pointer-events:auto; display:flex; align-items:center; gap:6px; background:rgba(16,20,28,0.85);
   border:1px solid var(--hairline); backdrop-filter:blur(10px); padding:6px; border-radius:var(--r-full);
-  box-shadow:var(--shadow-lift);
+  box-shadow:var(--shadow-lift); position:relative;
 }
+
+/* Popover de volume — ancorado ao botão de áudio */
+.volume-popover{
+  position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%);
+  display:none; align-items:center; gap:10px; width:200px;
+  background:rgba(16,20,28,0.95); border:1px solid var(--hairline); backdrop-filter:blur(10px);
+  padding:8px 14px 8px 8px; border-radius:var(--r-full); box-shadow:var(--shadow-lift); z-index:30;
+}
+.volume-popover.open{ display:flex; }
+.volume-popover .action-icon{ flex-shrink:0; width:30px; height:30px; color:var(--text-1); }
+.volume-popover .action-icon:hover{ color:var(--brass-bright); }
+.volume-popover input[type="range"]{
+  flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:var(--r-full);
+  background:var(--ink-700); outline:none; cursor:pointer; accent-color:var(--brass);
+}
+.volume-popover input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--brass-bright); cursor:pointer; border:2px solid var(--ink-950);
+}
+.volume-popover input[type="range"]::-moz-range-thumb{
+  width:14px; height:14px; border-radius:50%; background:var(--brass-bright); cursor:pointer; border:2px solid var(--ink-950);
+}
+#volume-value{ font-family:var(--f-mono); font-size:11px; color:var(--text-1); width:32px; text-align:right; flex-shrink:0; }
 
 /* Barra de perfil inferior */
 .bottom-bar{
@@ -334,11 +357,48 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
    ========================================================== */
 @media (max-width: 860px){
   .left-nav{ display:none; }
-  .right-sidebar{ position:absolute; right:-100%; top:0; bottom:0; height:100%; box-shadow:-10px 0 30px rgba(0,0,0,0.6); }
+  .right-sidebar{ position:absolute; right:-100%; top:0; bottom:0; height:100%; width:88%; max-width:352px; box-shadow:-10px 0 30px rgba(0,0,0,0.6); }
   .right-sidebar.open{ right:0; }
   .mobile-chat-toggle{ display:flex; }
   .hud-stats .stat-chip:not(.stat-primary){ display:none; }
   .popover{ width:calc(100% - 32px); right:16px; }
+  .hide-mobile{ display:none; }
+
+  /* HUD superior mais compacto pra caber em telas pequenas */
+  .hud-top{ top:10px; left:10px; right:10px; }
+  #status-pill{ padding:7px 12px 7px 8px; font-size:11.5px; }
+  .stat-chip{ padding:7px 11px; font-size:11px; }
+
+  /* Controles flutuantes maiores e mais fáceis de tocar */
+  .hud-bottom{ bottom:12px; }
+  .floating-controls{ gap:4px; padding:5px; }
+  .btn-icon{ width:44px; height:44px; }
+  .volume-popover{ width:min(72vw, 240px); }
+
+  /* Barra de perfil inferior mais enxuta */
+  .bottom-bar{ height:60px; padding:0 12px; gap:8px; }
+  .player-name{ font-size:13px; }
+  .player-status{ font-size:10.5px; }
+  .bottom-actions .btn{ padding:10px 12px; }
+
+  /* Área de chat com alvos de toque maiores */
+  .action-icon{ width:38px; height:38px; }
+  .chat-input{ padding:10px 0; font-size:15px; }
+}
+
+/* Telas bem pequenas (celulares estreitos) */
+@media (max-width: 420px){
+  .right-sidebar{ width:100%; max-width:none; }
+  .hud-stats .stat-chip.stat-primary{ padding:6px 10px; font-size:10.5px; }
+  #status-text{ max-width:34vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .avatar{ width:36px; height:36px; }
+  .popover{ height:60vh; }
+}
+
+/* Respeita áreas seguras em celulares com notch/gestos */
+@supports (padding: max(0px)){
+  .hud-top{ top:max(16px, env(safe-area-inset-top)); }
+  .bottom-bar{ padding-bottom:env(safe-area-inset-bottom); }
 }
 </style>
 </head>
@@ -411,8 +471,17 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
 
     <div class="hud-bottom">
       <div class="floating-controls">
-        <div class="btn-icon" title="Áudio (em breve)" style="cursor:default; opacity:.55;">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        <div class="volume-popover" id="volume-popover">
+          <span class="action-icon" id="btn-mute-toggle" onclick="toggleMute()" title="Mutar/Ativar som">
+            <svg class="icon" id="icon-mute-off" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+            <svg class="icon hidden" id="icon-mute-on" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m23 9-6 6M17 9l6 6"/></svg>
+          </span>
+          <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="onVolumeSliderInput(this.value)">
+          <span id="volume-value">100%</span>
+        </div>
+        <div class="btn-icon" id="btn-audio" title="Volume" onclick="toggleVolumePopover(event)">
+          <svg class="icon" id="icon-vol-on" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          <svg class="icon hidden" id="icon-vol-muted" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m23 9-6 6M17 9l6 6"/></svg>
         </div>
          <div class="btn-icon" id="btn-input-mode" title="Modo: Selecionar (Toque = Clique Esquerdo)" onclick="toggleInputMode()">
           <svg class="icon" id="icon-select" viewBox="0 0 24 24"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
@@ -535,6 +604,55 @@ if (!sessionToken) {
 }
 
 let myNick = localStorage.getItem("aoh2_nickname") || "";
+
+/* Volume local — controla tudo que toca no navegador (efeitos e música
+   vindos do servidor via base64). É multiplicado por cima do volume que o
+   Java já manda, então o slider some ainda funciona junto com os volumes
+   configurados no jogo. */
+let localVolume = parseFloat(localStorage.getItem("aoh2_volume"));
+if (isNaN(localVolume)) localVolume = 1;
+let isMuted = localStorage.getItem("aoh2_muted") === "1";
+let currentMusicBaseVolume = 0.4; // último volume "cru" que o servidor mandou pra música atual
+
+function effectiveVolumeMultiplier() { return isMuted ? 0 : localVolume; }
+
+function applyVolumeState() {
+    const mult = effectiveVolumeMultiplier();
+    const pct = Math.round((isMuted ? 0 : localVolume) * 100);
+    document.getElementById('icon-vol-on')?.classList.toggle('hidden', mult === 0);
+    document.getElementById('icon-vol-muted')?.classList.toggle('hidden', mult !== 0);
+    document.getElementById('icon-mute-off')?.classList.toggle('hidden', mult === 0);
+    document.getElementById('icon-mute-on')?.classList.toggle('hidden', mult !== 0);
+    const slider = document.getElementById('volume-slider');
+    if (slider) slider.value = pct;
+    const valueLabel = document.getElementById('volume-value');
+    if (valueLabel) valueLabel.innerText = pct + "%";
+    if (currentMusicAudio) currentMusicAudio.volume = Math.min(Math.max(currentMusicBaseVolume * mult, 0), 1);
+}
+
+function toggleVolumePopover(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('volume-popover').classList.toggle('open');
+}
+
+function toggleMute() {
+    isMuted = !isMuted;
+    localStorage.setItem("aoh2_muted", isMuted ? "1" : "0");
+    applyVolumeState();
+}
+
+function onVolumeSliderInput(val) {
+    localVolume = Math.min(Math.max(parseInt(val, 10) / 100, 0), 1);
+    localStorage.setItem("aoh2_volume", String(localVolume));
+    if (localVolume > 0 && isMuted) {
+        isMuted = false;
+        localStorage.setItem("aoh2_muted", "0");
+    }
+    applyVolumeState();
+}
+
+applyVolumeState(); // reflete o volume salvo assim que a página carrega
+
 let myPlayerId = null;
 let myCivName = null;   // nome da nação assumida, usado para estilizar minhas próprias mensagens
 let isHost = false;
@@ -807,6 +925,10 @@ function handleTextProtocol(msg) {
         const sender = rest.substring(0, sep);
         const text = rest.substring(sep + 1);
         appendChatMessage(sender, text);
+        // Avisos do "Sistema" (expulsão, espectador forçado, controle do host...)
+        // também aparecem como toast, pra ninguém perder um aviso importante do
+        // Host só porque o chat estava fechado (comum no celular).
+        if (sender === "Sistema") pushToast(text, "warn");
     }
     else if (msg.startsWith("TURN:")) {
         const parts = msg.split(":");
@@ -829,8 +951,10 @@ function handleTextProtocol(msg) {
         if (!soundCache[id]) {
             soundCache[id] = "data:audio/ogg;base64," + b64;
         }
+        const mult = effectiveVolumeMultiplier();
+        if (mult <= 0) return; // mutado — nem cria o Audio
         const audio = new Audio(soundCache[id]);
-        audio.volume = Math.min(Math.max(vol, 0), 1);
+        audio.volume = Math.min(Math.max(vol * mult, 0), 1);
         audio.play().catch(e => {}); // catch previne log de erro do Autoplay block antes do usuário clicar na tela
     }
     else if (msg.startsWith("PLAY_MUSIC:")) {
@@ -843,8 +967,9 @@ function handleTextProtocol(msg) {
             currentMusicAudio.pause();
         }
 
+        currentMusicBaseVolume = vol;
         currentMusicAudio = new Audio("data:audio/ogg;base64," + b64);
-        currentMusicAudio.volume = Math.min(Math.max(vol, 0), 1);
+        currentMusicAudio.volume = Math.min(Math.max(vol * effectiveVolumeMultiplier(), 0), 1);
         currentMusicAudio.loop = false;
         currentMusicAudio.play().catch(e => {});
     }
@@ -855,8 +980,9 @@ function handleTextProtocol(msg) {
     }
     else if (msg.startsWith("SET_MUSIC_VOL:")) {
         const vol = parseFloat(msg.split(":")[1]);
+        currentMusicBaseVolume = vol;
         if (currentMusicAudio) {
-            currentMusicAudio.volume = Math.min(Math.max(vol, 0), 1);
+            currentMusicAudio.volume = Math.min(Math.max(vol * effectiveVolumeMultiplier(), 0), 1);
         }
     }
 }
@@ -1028,6 +1154,18 @@ function appendChatMessage(nation, rawText) {
             text = rest.substring(sep + 1);
         }
     }
+    // Mensagens do "Sistema" (avisos do servidor: expulsão, espectador forçado,
+    // controle forçado do host etc.) não usam balão de chat — viram uma linha
+    // central discreta, igual à mensagem de boas-vindas.
+    if (nick === null && nation === "Sistema") {
+        const sysRow = document.createElement("div");
+        sysRow.className = "chat-system";
+        sysRow.innerText = text;
+        chatBox.appendChild(sysRow);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return;
+    }
+
     const displayName = nick || nation;
     const isOwn = nick !== null ? nick === myNick : (myCivName !== null && nation === myCivName);
 
@@ -1209,6 +1347,7 @@ let isDragging = false;
 let initialPinchDistance = null;
 let lastPinchTime = 0;
 let currentInputButton = 0; // 0 = Selecionar (Esquerdo), 1 = Mover (Direito)
+let lastPointerX = null, lastPointerY = null; // última posição conhecida, usada como rede de segurança
 
 function toggleInputMode() {
     currentInputButton = currentInputButton === 0 ? 1 : 0;
@@ -1219,18 +1358,24 @@ function toggleInputMode() {
     pushToast(title);
 }
 
-function getCanvasPos(clientX, clientY) {
+function getCanvasPos(clientX, clientY, clampToCanvas) {
     const rect = canvas.getBoundingClientRect();
-    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+    const outside = clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom;
+    if (outside && !clampToCanvas) return null;
+    // clampToCanvas: usado pra eventos de "soltar" — garante que o comando sempre
+    // chegue ao servidor mesmo se o cursor/dedo já tiver saído da área do mapa,
+    // evitando que o clique fique "preso" e o mapa continue se movendo sozinho.
+    const cx = Math.min(Math.max(clientX, rect.left), rect.right);
+    const cy = Math.min(Math.max(clientY, rect.top), rect.bottom);
     return {
-        x: (clientX - rect.left) / rect.width,
-        y: (clientY - rect.top) / rect.height
+        x: (cx - rect.left) / rect.width,
+        y: (cy - rect.top) / rect.height
     };
 }
 
-function sendEvent(action, e) {
+function sendEvent(action, e, clampToCanvas) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    const pos = getCanvasPos(e.clientX, e.clientY);
+    const pos = getCanvasPos(e.clientX, e.clientY, clampToCanvas);
     if (pos) {
         let payload = `${action}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`;
         
@@ -1247,9 +1392,38 @@ function sendEvent(action, e) {
     }
 }
 
-canvas.addEventListener('mousedown', e => { isDragging = true; sendEvent("DOWN", e); });
-canvas.addEventListener('mouseup', e => { isDragging = false; sendEvent("UP", e); });
-canvas.addEventListener('mousemove', e => { sendEvent(isDragging ? "DRAG" : "HOVER", e); });
+function releaseDrag(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    sendEvent("UP", e, true);
+}
+
+canvas.addEventListener('mousedown', e => { isDragging = true; lastPointerX = e.clientX; lastPointerY = e.clientY; sendEvent("DOWN", e); });
+
+// IMPORTANTE: mouseup e mousemove ficam no "window", não só no canvas.
+// Bug corrigido: antes, se o usuário arrastasse rápido o mouse pra fora do
+// canvas e soltasse o botão ali, o evento "mouseup" nunca disparava (o
+// listener só existia no canvas), então o servidor nunca recebia o "UP" e
+// o mapa continuava se movendo como se o botão estivesse travado. Isso não
+// acontece no jogo Java nativo porque o SO entrega o evento de soltar o
+// botão pra aplicação inteira, não só pra uma região da tela — então
+// replicamos esse comportamento aqui escutando no window inteiro.
+window.addEventListener('mousemove', e => {
+    lastPointerX = e.clientX; lastPointerY = e.clientY;
+    if (isDragging) sendEvent("DRAG", e, true);
+    else if (e.target === canvas) sendEvent("HOVER", e);
+});
+window.addEventListener('mouseup', e => releaseDrag(e));
+
+// Rede de segurança extra: se a janela perder o foco (trocar de aba, alt+tab,
+// notificação do celular etc.) enquanto o botão está pressionado, soltamos o
+// "clique" no servidor pra não deixar o mapa preso se movendo.
+window.addEventListener('blur', () => {
+    if (isDragging && lastPointerX !== null) {
+        releaseDrag({ clientX: lastPointerX, clientY: lastPointerY });
+    }
+});
+
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 canvas.addEventListener('wheel', e => {
@@ -1271,6 +1445,7 @@ canvas.addEventListener('wheel', e => {
 canvas.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
         isDragging = true;
+        lastPointerX = e.touches[0].clientX; lastPointerY = e.touches[0].clientY;
         sendEvent("DOWN", e.touches[0]);
     } else if (e.touches.length === 2) {
         initialPinchDistance = Math.hypot(
@@ -1283,7 +1458,8 @@ canvas.addEventListener('touchstart', e => {
 canvas.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 1 && isDragging) {
-        sendEvent("DRAG", e.touches[0]);
+        lastPointerX = e.touches[0].clientX; lastPointerY = e.touches[0].clientY;
+        sendEvent("DRAG", e.touches[0], true);
     } else if (e.touches.length === 2 && initialPinchDistance) {
         const currentDistance = Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
@@ -1315,9 +1491,21 @@ canvas.addEventListener('touchmove', e => {
 
 canvas.addEventListener('touchend', e => {
     if (e.touches.length === 0) {
-        isDragging = false;
         initialPinchDistance = null;
-        sendEvent("UP", e.changedTouches[0]);
+        if (e.changedTouches && e.changedTouches[0]) releaseDrag(e.changedTouches[0]);
+        else isDragging = false;
+    }
+});
+
+// touchcancel dispara quando o toque é interrompido pelo sistema (uma
+// notificação, um gesto do SO, etc.) — sem isso o dedo "solto" nunca avisava
+// o servidor e o mapa também podia ficar preso em modo de arraste no celular.
+canvas.addEventListener('touchcancel', () => {
+    initialPinchDistance = null;
+    if (isDragging && lastPointerX !== null) {
+        releaseDrag({ clientX: lastPointerX, clientY: lastPointerY });
+    } else {
+        isDragging = false;
     }
 });
 
@@ -1356,6 +1544,8 @@ function forceOverride() {
 document.addEventListener('click', e => {
     if (!kiplyPicker.contains(e.target) && e.target.closest('[onclick="toggleKiply()"]') === null) kiplyPicker.classList.remove('open');
     if (!emojiPopover.contains(e.target) && e.target.closest('[onclick="toggleEmoji()"]') === null) emojiPopover.classList.remove('open');
+    const volPopover = document.getElementById('volume-popover');
+    if (volPopover && !volPopover.contains(e.target) && e.target.closest('#btn-audio') === null) volPopover.classList.remove('open');
 }, true);
 </script>
 </body>
