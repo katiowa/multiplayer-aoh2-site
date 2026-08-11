@@ -613,6 +613,7 @@ let localVolume = parseFloat(localStorage.getItem("aoh2_volume"));
 if (isNaN(localVolume)) localVolume = 1;
 let isMuted = localStorage.getItem("aoh2_muted") === "1";
 let currentMusicBaseVolume = 0.4; // último volume "cru" que o servidor mandou pra música atual
+let currentMusicAudio = null; // objeto Audio() da música atual tocando via sync do servidor (precisa existir ANTES de applyVolumeState() ser chamado abaixo)
 
 function effectiveVolumeMultiplier() { return isMuted ? 0 : localVolume; }
 
@@ -752,7 +753,6 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 let socket;
 const soundCache = {};
-let currentMusicAudio = null;
 let lobbyInterval;
 let lastObjectURL = null;
 let reconnectAttempts = 0;
