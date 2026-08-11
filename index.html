@@ -1,316 +1,44 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AOH2 - Web Multiplayer</title>
-    <style>
-        /* CSS Omitido por brevidade - Pode usar O MESMO CSS que te mandei antes */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body, html { width: 100%; height: 100%; background-color: #18191c; color: #dcddde; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; display: flex; }
-        .left-nav { width: 60px; background-color: #111214; display: flex; flex-direction: column; align-items: center; padding-top: 10px; border-right: 1px solid #202225; }
-        .nav-icon { width: 40px; height: 40px; background-color: #2b2d31; border-radius: 50%; margin-bottom: 15px; cursor: pointer; transition: 0.2s; }
-        .nav-icon:hover { border-radius: 30%; background-color: #5865f2; }
-        .main-content { flex: 1; display: flex; flex-direction: column; background-color: #1e1f22; }
-        .video-area { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background-color: #000; }
-        canvas { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); }
-        #status-pill { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 20px; font-size: 13px; pointer-events: none; }
-        .bottom-bar { height: 60px; background-color: #2b2d31; display: flex; align-items: center; padding: 0 20px; border-top: 1px solid #1e1f22; justify-content: space-between; }
-        .controls-left, .controls-right { display: flex; align-items: center; gap: 15px; }
-        .btn-danger { background-color: #da373c; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .player-profile { display: flex; flex-direction: column; align-items: center; margin-left: 20px; }
-        .avatar { width: 35px; height: 35px; border-radius: 50%; background-color: #fff; cursor: pointer; border: 2px solid transparent; }
-        .player-name { font-size: 11px; margin-top: 4px; color: #949ba4; }
-        .right-sidebar { width: 300px; background-color: #2b2d31; display: flex; flex-direction: column; border-left: 1px solid #1e1f22; }
-        .sidebar-header { padding: 15px; border-bottom: 1px solid #1e1f22; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 10px; }
-        .online-dot { width: 10px; height: 10px; background-color: #2ecc71; border-radius: 50%; }
-        .sidebar-content { flex: 1; padding: 10px; display: flex; flex-direction: column; overflow-y: hidden; }
-        
-        .invite-box { background-color: #1e1f22; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 10px; }
-        .invite-box h3 { font-size: 14px; margin-bottom: 5px; color: #f2f3f5; }
-        .invite-box p { font-size: 12px; color: #b5bac1; margin-bottom: 15px; }
-        .country-btn { width: 100%; padding: 10px; margin-bottom: 10px; background-color: #5865f2; border: none; border-radius: 4px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .country-btn:hover { background-color: #4752c4; }
-        
-        /* NOVO: Estilos do Chat */
-        .chat-area { flex: 1; overflow-y: auto; padding: 5px; display: flex; flex-direction: column; gap: 8px; }
-        .chat-msg { background-color: #1e1f22; padding: 8px; border-radius: 6px; font-size: 13px; word-wrap: break-word; }
-        .chat-msg span { font-weight: bold; color: #f1c40f; display: block; font-size: 11px; margin-bottom: 3px; }
-        .sidebar-footer { padding: 15px; background-color: #2b2d31; border-top: 1px solid #1e1f22; }
-        .chat-input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 10px; color: white; outline: none; }
-    </style>
-</head>
-<body>
+public void run() {
+    try {
+        String arch = System.getProperty("os.arch").toLowerCase();
+        String envArch = System.getenv("PROCESSOR_ARCHITECTURE");
+        String envArchW6432 = System.getenv("PROCESSOR_ARCHITEW6432");
+        boolean is64Bit = arch.contains("64") || (envArch != null && envArch.contains("64")) || (envArchW6432 != null && envArchW6432.contains("64"));
 
-    <div class="left-nav">
-        <div class="nav-icon" title="Menu Principal"></div>
-        <div class="nav-icon" style="background-color: #23a559;" title="Em Jogo"></div>
-    </div>
+        String exeName = is64Bit ? "cloudflared-windows-amd64.exe" : "cloudflared-windows-386.exe";
+        String exePath = "online/cloudflared/" + exeName;
 
-    <div class="main-content">
-        <div class="video-area">
-            <div id="status-pill">⏳ Conectando...</div>
-            <canvas id="gameCanvas"></canvas>
-        </div>
-        <div class="bottom-bar">
-            <div class="controls-left">
-                <button class="btn-danger">Sair</button>
-                <div class="player-profile">
-                    <div class="avatar host"></div>
-                    <span class="player-name" id="my-player-name">Espectador</span>
-                </div>
-            </div>
-            <div class="controls-right">
-                <span style="font-size: 12px; color: #949ba4;">🔊 Volume</span>
-                <span style="font-size: 20px; cursor: pointer;">⛶</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="right-sidebar">
-        <div class="sidebar-header">
-            <div class="online-dot"></div> Conectado
-        </div>
-        
-        <div class="sidebar-content">
-            <!-- Área de Lobby (Some quando escolhe o país) -->
-            <div class="invite-box" id="lobby-box">
-                <h3>Escolha seu País</h3>
-                <div id="civButtons">
-                    <span style="font-size: 12px; color: #949ba4;">Aguardando Host iniciar o jogo...</span>
-                </div>
-            </div>
-
-            <!-- Área de Mensagens do Chat -->
-            <div class="chat-area" id="chat-box"></div>
-        </div>
-
-        <div class="sidebar-footer">
-            <input type="text" id="chat-input" class="chat-input" placeholder="Digite no chat e dê Enter...">
-        </div>
-    </div>
-
-    <script>
-        // GERADOR DE TOKEN DA SESSÃO (Magia para não perder o país se a net cair)
-        let sessionToken = localStorage.getItem("aoh2_session_token");
-	let myPlayerId = null; // Guarda o ID do país que a pessoa escolher
-        if (!sessionToken) {
-            sessionToken = "USR-" + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem("aoh2_session_token", sessionToken);
+        java.io.File file = new java.io.File(exePath);
+        if (!file.exists()) {
+            System.out.println("Erro: Cloudflared não encontrado em " + exePath);
+            return;
         }
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const statusPill = document.getElementById('status-pill');
-        const civButtonsContainer = document.getElementById('civButtons');
-        const chatBox = document.getElementById('chat-box');
-        const chatInput = document.getElementById('chat-input');
-        const lobbyBox = document.getElementById('lobby-box');
-        
-        // =========================================================
-        // CONEXÃO INTELIGENTE DE WEBSOCKET (LOCAL x CLOUDFLARE)
-        // =========================================================
-        const urlParams = new URLSearchParams(window.location.search);
-        const serverParam = urlParams.get('server');
+        ProcessBuilder pb = new ProcessBuilder(exePath, "tunnel", "--url", "http://localhost:8080");
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
 
-        let wsUrl;
-        if (serverParam) {
-            // Remove qualquer prefixo ou barra acidental recebida na URL
-            const cleanServer = serverParam.replace("wss://", "")
-                                           .replace("ws://", "")
-                                           .replace("https://", "")
-                                           .replace("http://", "")
-                                           .replace("/", "")
-                                           .trim();
-                                           
-            // Conecta via WSS (WebSocket Seguro) obrigatorio para HTTPS/Cloudflare
-            wsUrl = "wss://" + cleanServer;
-        } else {
-            // Fallback para Testes Locais (LAN / Localhost)
-            const isHttps = window.location.protocol === 'https:';
-            const wsProtocol = isHttps ? 'wss://' : 'ws://';
-            const wsPort = isHttps ? '' : ':8080';
-            wsUrl = wsProtocol + window.location.hostname + wsPort;
+        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.contains("trycloudflare.com")) {
+                int startIndex = line.indexOf("https://");
+                if (startIndex != -1) {
+                    String url = line.substring(startIndex).trim().replaceAll("\\e\\[[\\d;]*[^\\d;]", "");
+                    String cleanDomain = url.replace("https://", "").replace("http://", "");
+                    String finalUrl = "https://katiowa.github.io/multiplayer-aoh2-site/?server=" + cleanDomain;
+
+                    java.awt.datatransfer.StringSelection stringSelection = new java.awt.datatransfer.StringSelection(finalUrl);
+                    java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(stringSelection, null);
+
+                    // A MÁGICA: Em vez de usar postRunnable (que quebra o Recaf), 
+                    // salvamos a string nesta variável estática que criamos.
+                    CFG.pendingTunnelUrl = finalUrl;
+                    break; 
+                }
+            }
         }
-
-        console.log("Conectando ao servidor Multiplayer:", wsUrl);
-        const socket = new WebSocket(wsUrl);
-        socket.binaryType = 'blob';
-
-        let lobbyInterval;
-
-        socket.onopen = function() {
-            statusPill.innerText = "🟢 Conectado";
-            
-            // Avisa o Java quem somos nós assim que conecta
-            socket.send("AUTH:" + sessionToken);
-
-            lobbyInterval = setInterval(() => {
-                if(socket.readyState === WebSocket.OPEN) {
-                    socket.send("GET_LOBBY");
-                }
-            }, 2000);
-        };
-
-        socket.onclose = function() {
-            statusPill.innerText = "🔴 Desconectado";
-            clearInterval(lobbyInterval);
-        };
-
-        let lastObjectURL = null;
-
-        socket.onmessage = function(event) {
-            // SE FOR MENSAGEM DO SISTEMA (TEXTO)
-            if (typeof event.data === "string") {
-                const msg = event.data;
-                
-                if (msg.startsWith("LOBBY_LIST:")) {
-                    buildLobby(msg.substring(11));
-                }
-                else if (msg.startsWith("RESTORE_SESSION:")) {
-                    // O Java nos reconheceu e nos devolveu o controle do nosso país!
-                    clearInterval(lobbyInterval);
-                    lobbyBox.style.display = "none";
-                    statusPill.innerText = "🎮 Sessão Restaurada!";
-                }
-                else if (msg.startsWith("CHAT_MSG:")) {
-                    // Formato: CHAT_MSG:NOME:MENSAGEM
-                    const firstColon = msg.indexOf(":", 9);
-                    const sender = msg.substring(9, firstColon);
-                    const text = msg.substring(firstColon + 1);
-                    
-                    const p = document.createElement("div");
-                    p.className = "chat-msg";
-                    p.innerHTML = "<span>" + sender + "</span> " + text;
-                    chatBox.appendChild(p);
-                    chatBox.scrollTop = chatBox.scrollHeight; // Autoscroll pro fim
-                }
-		else if (msg.startsWith("TURN:")) {
-                    const parts = msg.split(":");
-                    const currentTurnId = parseInt(parts[1]);
-                    const isInputPhase = (parts[2] === "true"); // true = humanos, false = IA processando
-                    
-                    if (myPlayerId === null) return; // Espectadores ignoram
-                    
-                    if (!isInputPhase) {
-                        statusPill.innerText = "⏳ Processando IA...";
-                        statusPill.style.background = "rgba(241, 196, 15, 0.9)"; // Amarelo
-                    } else if (currentTurnId === myPlayerId) {
-                        statusPill.innerText = "🎮 Sua Vez!";
-                        statusPill.style.background = "rgba(46, 204, 113, 0.9)"; // Verde
-                    } else {
-                        statusPill.innerText = "⛔ Aguarde a vez do outro jogador...";
-                        statusPill.style.background = "rgba(231, 76, 60, 0.9)"; // Vermelho
-                    }
-                }
-                return;
-            }
-
-            // SE FOR O VÍDEO DO JOGO (JPEG)
-            if (event.data instanceof Blob) {
-                const img = new Image();
-                img.onload = function() {
-                    if(canvas.width !== img.width || canvas.height !== img.height) {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                    }
-                    ctx.drawImage(img, 0, 0);
-                    if (lastObjectURL) URL.revokeObjectURL(lastObjectURL);
-                    lastObjectURL = img.src;
-                };
-                img.src = URL.createObjectURL(event.data);
-            }
-        };
-
-        function buildLobby(data) {
-            if(!data || data.trim() === "") return;
-            clearInterval(lobbyInterval);
-            civButtonsContainer.innerHTML = ""; 
-            
-            const players = data.split(";");
-            players.forEach(p => {
-                const parts = p.split("=");
-                if (parts.length < 2) return;
-                const pId = parts[0];
-                const pName = parts[1];
-                
-                const btn = document.createElement("button");
-                btn.className = "country-btn";
-                btn.innerText = "Jogar com: " + pName;
-                
-                btn.onclick = function() {
-                    // Salva qual ID o usuário escolheu para controle de UI
-                    myPlayerId = parseInt(pId);
-                    
-                    socket.send("CLAIM:" + pId + ":" + sessionToken);
-                    lobbyBox.style.display = "none";
-                    document.getElementById('my-player-name').innerText = pName;
-                    
-                    // Pede o status do turno atual pro Java atualizar a UI na hora
-                    socket.send("GET_LOBBY"); 
-                };
-                civButtonsContainer.appendChild(btn);
-            });
-        }
-
-        // --- ENVIAR MENSAGENS DE CHAT ---
-        chatInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && this.value.trim() !== '') {
-                socket.send("CHAT:" + this.value);
-                this.value = '';
-            }
-        });
-
-// --- SISTEMA DE MOUSE (CLIQUE E HOVER) ---
-        let isDragging = false;
-        function sendMouseEvent(action, event) {
-            if (socket.readyState !== WebSocket.OPEN) return;
-            const rect = canvas.getBoundingClientRect();
-            if(event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            const percentX = (x / rect.width).toFixed(4);
-            const percentY = (y / rect.height).toFixed(4);
-            socket.send(action + ":" + percentX + "," + percentY);
-        }
-
-        canvas.addEventListener('mousedown', function(e) { isDragging = true; sendMouseEvent("DOWN", e); });
-        canvas.addEventListener('mouseup', function(e) { isDragging = false; sendMouseEvent("UP", e); });
-        
-        canvas.addEventListener('mousemove', function(e) { 
-            if (isDragging) {
-                sendMouseEvent("DRAG", e); 
-            } else {
-                sendMouseEvent("HOVER", e); // NOVO: Manda o hover para mostrar tooltips no jogo
-            }
-        });
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-        // --- SISTEMA DE TECLADO (DIGITAÇÃO NO JOGO) ---
-        window.addEventListener('keydown', function(e) {
-            // Se o usuário estiver digitando no Chat lateral, ignora o jogo!
-            if (document.activeElement === chatInput) return;
-            
-            // Trata teclas especiais
-            if (socket.readyState === WebSocket.OPEN) {
-                if (e.key === "Backspace") {
-                    socket.send("KEY_TYPED:\b");
-                } else if (e.key === "Enter") {
-                    socket.send("KEY_TYPED:\r");
-                }
-            }
-        });
-
-        window.addEventListener('keypress', function(e) {
-            if (document.activeElement === chatInput) return;
-            
-            // Impede que teclas como Espaço rolem a página
-            if(e.key === " ") e.preventDefault(); 
-            
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send("KEY_TYPED:" + e.key);
-            }
-        });
-    </script>
-</body>
-</html>
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
