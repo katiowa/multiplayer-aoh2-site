@@ -1217,8 +1217,13 @@ canvas.addEventListener('wheel', e => {
     const amount = e.deltaY > 0 ? 1 : -1;
     const pos = getCanvasPos(e.clientX, e.clientY);
     if (pos) {
-        // Envia as coordenadas junto com o zoom para o jogo focar no mouse!
-        socket.send(`WHEEL:${amount}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+        // O navegador "engole" eventos de scroll. 
+        // Disparar o comando 3x seguidas por "clique" da rodinha compensa a perda
+        // e deixa a velocidade igual à do jogo rodando nativamente no PC.
+        let steps = Math.abs(e.deltaY) > 40 ? 3 : 1; // Trackpads são suaves, mouses são fortes
+        for(let i = 0; i < steps; i++) {
+            socket.send(`WHEEL:${amount}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+        }
     }
 }, { passive: false });
 
@@ -1243,17 +1248,22 @@ canvas.addEventListener('touchmove', e => {
             e.touches[0].clientX - e.touches[1].clientX,
             e.touches[0].clientY - e.touches[1].clientY
         );
-        if (Math.abs(currentDistance - initialPinchDistance) > 30) {
+        // Diminuí a margem de disparo de 30px para 12px (agora é muito mais sensível aos dedos)
+        if (Math.abs(currentDistance - initialPinchDistance) > 12) {
             const now = Date.now();
-            // Freio do Mobile: O JS no celular dispara dezenas de eventos num segundo. 
-            // O Java não aguenta calcular zoom na mesma velocidade. Limitamos a 1 zoom a cada 180ms.
-            if (now - lastPinchTime > 180) { 
+            
+            // O FREIO CAIU DE 180ms PARA APENAS 35ms! (Sem travamentos)
+            if (now - lastPinchTime > 35) { 
                 const amount = currentDistance > initialPinchDistance ? -1 : 1;
                 const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
                 const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
                 const pos = getCanvasPos(midX, midY);
                 if (pos && socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(`WHEEL:${amount}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+                    
+                    // Disparamos 2x para garantir velocidade e fluidez na pinça do celular
+                    for(let i = 0; i < 2; i++) {
+                        socket.send(`WHEEL:${amount}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+                    }
                 }
                 initialPinchDistance = currentDistance;
                 lastPinchTime = now;
