@@ -1,44 +1,660 @@
-public void run() {
-    try {
-        String arch = System.getProperty("os.arch").toLowerCase();
-        String envArch = System.getenv("PROCESSOR_ARCHITECTURE");
-        String envArchW6432 = System.getenv("PROCESSOR_ARCHITEW6432");
-        boolean is64Bit = arch.contains("64") || (envArch != null && envArch.contains("64")) || (envArchW6432 != null && envArchW6432.contains("64"));
-
-        String exeName = is64Bit ? "cloudflared-windows-amd64.exe" : "cloudflared-windows-386.exe";
-        String exePath = "online/cloudflared/" + exeName;
-
-        java.io.File file = new java.io.File(exePath);
-        if (!file.exists()) {
-            System.out.println("Erro: Cloudflared não encontrado em " + exePath);
-            return;
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AOH2 - Web Multiplayer</title>
+    <style>
+        /* ==========================================
+           DESIGN SYSTEM & VARIÁVEIS (Estilo Discord)
+           ========================================== */
+        :root {
+            --bg-primary: #313338;
+            --bg-secondary: #2b2d31;
+            --bg-tertiary: #1e1f22;
+            --bg-quaternary: #111214;
+            --accent: #5865f2;
+            --accent-hover: #4752c4;
+            --danger: #da373c;
+            --danger-hover: #a1282b;
+            --success: #23a559;
+            --text-normal: #dbdee1;
+            --text-muted: #949ba4;
+            --text-header: #f2f3f5;
+            --border-color: #1e1f22;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        ProcessBuilder pb = new ProcessBuilder(exePath, "tunnel", "--url", "http://localhost:8080");
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: var(--bg-primary); color: var(--text-normal); 
+            font-family: var(--font-family); overflow: hidden; display: flex; 
+        }
 
-        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            if (line.contains("trycloudflare.com")) {
-                int startIndex = line.indexOf("https://");
-                if (startIndex != -1) {
-                    String url = line.substring(startIndex).trim().replaceAll("\\e\\[[\\d;]*[^\\d;]", "");
-                    String cleanDomain = url.replace("https://", "").replace("http://", "");
-                    String finalUrl = "https://katiowa.github.io/multiplayer-aoh2-site/?server=" + cleanDomain;
+        /* ==========================================
+           MODAIS E OVERLAYS
+           ========================================== */
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center;
+            z-index: 9999; backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            background: var(--bg-primary); padding: 30px; border-radius: 12px; width: 400px;
+            box-shadow: 0px 10px 30px rgba(0,0,0,0.5); text-align: center;
+        }
+        .modal-box h2 { color: var(--text-header); margin-bottom: 10px; }
+        .modal-box p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
+        .modal-input {
+            width: 100%; padding: 12px; border-radius: 6px; border: none; background: var(--bg-tertiary);
+            color: white; font-size: 16px; outline: none; margin-bottom: 20px; text-align: center;
+        }
+        .modal-btn {
+            width: 100%; padding: 12px; border: none; border-radius: 6px; background: var(--accent);
+            color: white; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px;
+        }
+        .modal-btn:hover { background: var(--accent-hover); }
+        .hidden { display: none !important; }
 
-                    java.awt.datatransfer.StringSelection stringSelection = new java.awt.datatransfer.StringSelection(finalUrl);
-                    java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(stringSelection, null);
+        /* ==========================================
+           ESTRUTURA PRINCIPAL
+           ========================================== */
+        .left-nav {
+            width: 70px; background-color: var(--bg-quaternary); display: flex; flex-direction: column;
+            align-items: center; padding-top: 15px; border-right: 1px solid var(--border-color); z-index: 10;
+        }
+        .nav-icon {
+            width: 48px; height: 48px; background-color: var(--bg-primary); border-radius: 50%;
+            margin-bottom: 15px; cursor: pointer; transition: 0.2s; display: flex;
+            justify-content: center; align-items: center; font-size: 20px; font-weight: bold;
+        }
+        .nav-icon:hover, .nav-icon.active { border-radius: 30%; background-color: var(--accent); color: white; }
+        .nav-icon.host-icon { background-color: var(--success); display: none; }
+        .nav-icon.host-icon.visible { display: flex; }
 
-                    // A MÁGICA: Em vez de usar postRunnable (que quebra o Recaf), 
-                    // salvamos a string nesta variável estática que criamos.
-                    CFG.pendingTunnelUrl = finalUrl;
-                    break; 
-                }
+        .main-content { flex: 1; display: flex; flex-direction: column; background-color: var(--bg-primary); position: relative;}
+        
+        .video-area { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background-color: #000; overflow: hidden;}
+        canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        #status-pill {
+            position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7);
+            padding: 6px 15px; border-radius: 20px; font-size: 13px; pointer-events: none;
+            transition: all 0.3s; font-weight: bold; z-index: 5;
+        }
+
+        .bottom-bar {
+            height: 60px; background-color: var(--bg-secondary); display: flex; align-items: center;
+            padding: 0 20px; border-top: 1px solid var(--border-color); justify-content: space-between;
+        }
+        .player-profile { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-tertiary); overflow: hidden; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .player-info { display: flex; flex-direction: column; }
+        .player-name { font-size: 14px; font-weight: bold; color: var(--text-header); }
+        .player-status { font-size: 11px; color: var(--success); }
+
+        /* ==========================================
+           BARRA LATERAL DIREITA (Chat & Lobby)
+           ========================================== */
+        .right-sidebar {
+            width: 320px; background-color: var(--bg-secondary); display: flex; flex-direction: column;
+            border-left: 1px solid var(--border-color); transition: 0.3s;
+        }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid var(--bg-tertiary); font-weight: bold; display: flex; justify-content: space-between; }
+        .tabs { display: flex; gap: 15px; font-size: 14px; color: var(--text-muted); }
+        .tab { cursor: pointer; padding-bottom: 5px; border-bottom: 2px solid transparent; }
+        .tab.active { color: var(--text-header); border-bottom-color: var(--accent); }
+        
+        .sidebar-content { flex: 1; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; gap: 10px;}
+        
+        /* Lobby */
+        .lobby-item {
+            background: var(--bg-tertiary); padding: 10px; border-radius: 8px; display: flex;
+            justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s;
+        }
+        .lobby-item:hover { background: var(--bg-primary); transform: translateY(-2px); }
+        .lobby-item.disabled { opacity: 0.5; pointer-events: none; }
+        
+        /* Chat */
+        .chat-area { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .chat-msg { background-color: var(--bg-tertiary); padding: 10px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-wrap: break-word;}
+        .chat-msg .sender { font-weight: bold; color: #f1c40f; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-size: 12px;}
+        .chat-msg img.gif-img { max-width: 100%; border-radius: 6px; margin-top: 5px; }
+        
+        .sidebar-footer { padding: 15px; background-color: var(--bg-secondary); }
+        .chat-input-wrapper { display: flex; background: var(--bg-tertiary); border-radius: 8px; padding: 5px 10px; align-items: center; gap: 8px;}
+        .chat-input { flex: 1; background: transparent; border: none; color: white; outline: none; padding: 5px; font-size: 14px;}
+        .action-icon { cursor: pointer; color: var(--text-muted); font-size: 18px; transition: 0.2s; }
+        .action-icon:hover { color: var(--text-header); }
+
+        /* Kiply Picker Modal */
+        .kiply-picker {
+            position: absolute; bottom: 80px; right: 20px; width: 280px; height: 350px;
+            background: var(--bg-primary); border-radius: 8px; box-shadow: 0px 5px 20px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; padding: 10px; z-index: 50; display: none;
+        }
+        .kiply-picker.open { display: flex; }
+        .kiply-picker input { width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--bg-tertiary); color: white; outline: none; margin-bottom: 10px;}
+        .kiply-results { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .kiply-results img { width: 100%; border-radius: 4px; cursor: pointer; object-fit: cover; height: 80px;}
+
+        /* Mobile tweaks */
+        @media (max-width: 768px) {
+            .left-nav { display: none; } /* Esconde navbar esq. no mobile */
+            .right-sidebar { position: absolute; right: -100%; height: 100%; z-index: 100; box-shadow: -5px 0px 20px rgba(0,0,0,0.8);}
+            .right-sidebar.open { right: 0; }
+            .mobile-chat-toggle { display: block !important; cursor: pointer; background: var(--accent); padding: 8px 15px; border-radius: 6px; font-weight: bold;}
+        }
+        .mobile-chat-toggle { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. MODAL DE LOGIN (Identidade) -->
+    <div class="modal-overlay" id="login-modal">
+        <div class="modal-box">
+            <h2>Bem-vindo ao AOH2</h2>
+            <p>Insira seu nickname para se conectar ao servidor.</p>
+            <input type="text" id="nickname-input" class="modal-input" placeholder="Seu Nickname..." maxlength="16">
+            <button class="modal-btn" onclick="joinServer()">Entrar na Partida</button>
+        </div>
+    </div>
+
+    <!-- 2. PAINEL DO HOST (Escondido por padrão) -->
+    <div class="modal-overlay hidden" id="host-modal">
+        <div class="modal-box" style="width: 500px;">
+            <h2>👑 Painel do Host</h2>
+            <p>Gerencie os jogadores e controle a partida.</p>
+            <div id="host-player-list" style="text-align: left; max-height: 200px; overflow-y: auto; margin-bottom: 15px; background: var(--bg-tertiary); padding: 10px; border-radius: 8px;">
+                <!-- Lista injetada pelo JS -->
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="modal-btn" style="background: var(--danger);" onclick="closeHostPanel()">Fechar Painel</button>
+                <button class="modal-btn" onclick="forceOverride()">Forçar Controle de Tela</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAVEGAÇÃO ESQUERDA -->
+    <div class="left-nav">
+        <div class="nav-icon active" title="Jogo">AOH</div>
+        <div class="nav-icon host-icon" id="btn-host-panel" title="Painel do Host" onclick="openHostPanel()">👑</div>
+    </div>
+
+    <!-- CONTEÚDO CENTRAL -->
+    <div class="main-content">
+        <div class="video-area" id="video-area">
+            <div id="status-pill">⏳ Autenticando...</div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <div class="bottom-bar">
+            <div class="player-profile">
+                <div class="avatar"><img id="my-avatar" src="" alt="Avatar"></div>
+                <div class="player-info">
+                    <span class="player-name" id="my-player-name">Visitante</span>
+                    <span class="player-status" id="my-player-civ">Visualizando</span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="mobile-chat-toggle" onclick="toggleSidebar()">💬 Chat & Lobby</div>
+                <span title="Volume (Em breve)" style="cursor: pointer; font-size: 20px;">🔊</span>
+                <span title="Tela Cheia" style="cursor: pointer; font-size: 20px;" onclick="toggleFullScreen()">⛶</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA DIREITA (LOBBY & CHAT) -->
+    <div class="right-sidebar" id="right-sidebar">
+        <div class="sidebar-header">
+            <div class="tabs">
+                <div class="tab active" id="tab-lobby" onclick="switchTab('lobby')">Lobby / Países</div>
+                <div class="tab" id="tab-chat" onclick="switchTab('chat')">Chat Global</div>
+            </div>
+        </div>
+        
+        <!-- ABA LOBBY -->
+        <div class="sidebar-content" id="view-lobby">
+            <p style="font-size: 12px; color: var(--text-muted);">Aguardando o Host liberar os países...</p>
+            <div id="civButtons"></div>
+        </div>
+
+        <!-- ABA CHAT -->
+        <div class="sidebar-content hidden" id="view-chat">
+            <div class="chat-area" id="chat-box">
+                <div class="chat-msg" style="text-align: center; color: var(--text-muted); background: transparent;">
+                    Bem-vindo ao chat! Respeite as regras.
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="chat-input-wrapper">
+                <span class="action-icon" title="Emojis" onclick="toggleEmoji()">😀</span>
+                <span class="action-icon" title="GIFs (Kiply)" onclick="toggleKiply()">GIF</span>
+                <input type="text" id="chat-input" class="chat-input" placeholder="Digite uma mensagem...">
+            </div>
+        </div>
+
+        <!-- KIPLY GIF PICKER POPUP -->
+        <div class="kiply-picker" id="kiply-picker">
+            <input type="text" id="kiply-search" placeholder="Pesquisar GIFs no Kiply..." oninput="searchKiply(this.value)">
+            <div class="kiply-results" id="kiply-results">
+                <p style="font-size: 12px; color: gray; text-align: center; grid-column: span 2;">Digite para buscar...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================
+           1. GERENCIAMENTO DE ESTADO E IDENTIDADE
+           ========================================== */
+        let sessionToken = localStorage.getItem("aoh2_session_token");
+        if (!sessionToken) {
+            sessionToken = "USR-" + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem("aoh2_session_token", sessionToken);
+        }
+
+        let myNick = localStorage.getItem("aoh2_nickname") || "";
+        let myPlayerId = null;
+        let isHost = false; // Será true se o Java avisar que somos host
+
+        const loginModal = document.getElementById("login-modal");
+        const nickInput = document.getElementById("nickname-input");
+        const statusPill = document.getElementById("status-pill");
+
+        // Se já tem nick, preenche o campo. O usuário DEVE clicar em entrar.
+        if (myNick) nickInput.value = myNick;
+
+        function joinServer() {
+            const val = nickInput.value.trim();
+            if (val.length < 3) {
+                alert("O Nick deve ter pelo menos 3 caracteres.");
+                return;
+            }
+            myNick = val;
+            localStorage.setItem("aoh2_nickname", myNick);
+            
+            // Define o Avatar Fodão via DiceBear (Estilo Bottts)
+            const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(myNick)}&colors=blue,red,green`;
+            document.getElementById("my-avatar").src = avatarUrl;
+            document.getElementById("my-player-name").innerText = myNick;
+
+            loginModal.classList.add("hidden");
+            initWebSocket(); // Só conecta no WS DEPOIS do login!
+        }
+
+        /* ==========================================
+           2. TABS E UI RESPONSIVO
+           ========================================== */
+        function switchTab(tabName) {
+            document.getElementById("tab-lobby").classList.remove("active");
+            document.getElementById("tab-chat").classList.remove("active");
+            document.getElementById("view-lobby").classList.add("hidden");
+            document.getElementById("view-chat").classList.add("hidden");
+            
+            document.getElementById(`tab-${tabName}`).classList.add("active");
+            document.getElementById(`view-${tabName}`).classList.remove("hidden");
+        }
+
+        function toggleSidebar() {
+            document.getElementById("right-sidebar").classList.toggle("open");
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Erro ao tentar tela cheia: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
             }
         }
-    } catch (Exception e) {
-        e.printStackTrace();
-    }
-}
+
+        function setStatus(text, colorClass) {
+            statusPill.innerText = text;
+            if(colorClass === "green") statusPill.style.background = "rgba(46, 204, 113, 0.9)";
+            else if(colorClass === "yellow") statusPill.style.background = "rgba(241, 196, 15, 0.9)";
+            else if(colorClass === "red") statusPill.style.background = "rgba(231, 76, 60, 0.9)";
+            else statusPill.style.background = "rgba(0, 0, 0, 0.7)";
+        }
+
+        /* ==========================================
+           3. WEBSOCKET E LÓGICA DO JOGO
+           ========================================== */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Otimização de render
+        let socket;
+        let lobbyInterval;
+        let lastObjectURL = null;
+
+        function initWebSocket() {
+            setStatus("⏳ Conectando...", "");
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const serverParam = urlParams.get('server');
+            let wsUrl = serverParam ? "wss://" + serverParam.replace(/^(ws|wss|http|https):\/\//, "").replace(/\/$/, "") 
+                                    : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.hostname + (window.location.protocol === 'https:' ? '' : ':8080');
+
+            socket = new WebSocket(wsUrl);
+            socket.binaryType = 'blob';
+
+            socket.onopen = function() {
+                setStatus("🟢 Entrando no Lobby...", "green");
+                // Envia credenciais completas (Token + Nick)
+                socket.send(`AUTH:${sessionToken}:${myNick}`);
+
+                lobbyInterval = setInterval(() => {
+                    if(socket.readyState === WebSocket.OPEN) socket.send("GET_LOBBY");
+                }, 2000);
+            };
+
+            socket.onclose = function() {
+                setStatus("🔴 Conexão Perdida", "red");
+                clearInterval(lobbyInterval);
+                setTimeout(initWebSocket, 3000); // Tenta reconectar auto
+            };
+
+            socket.onmessage = function(event) {
+                // Mensagens de Texto (JSON/Strings)
+                if (typeof event.data === "string") {
+                    handleTextProtocol(event.data);
+                    return;
+                }
+
+                // Placeholder: Preparação para receber ÁUDIO do LibGDX (ArrayBuffer)
+                // Se no Java mandarmos o som como ArrayBuffer, tratamos aqui:
+                if (event.data instanceof ArrayBuffer) {
+                    // handleWebAudio(event.data);
+                    return;
+                }
+
+                // Renderização de Vídeo (Blob JPEG)
+                if (event.data instanceof Blob) {
+                    const img = new Image();
+                    img.onload = function() {
+                        if(canvas.width !== img.width || canvas.height !== img.height) {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                        }
+                        ctx.drawImage(img, 0, 0);
+                        if (lastObjectURL) URL.revokeObjectURL(lastObjectURL);
+                        lastObjectURL = img.src;
+                    };
+                    img.src = URL.createObjectURL(event.data);
+                }
+            };
+        }
+
+        function handleTextProtocol(msg) {
+            if (msg.startsWith("LOBBY_LIST:")) {
+                buildLobby(msg.substring(11));
+            }
+            else if (msg.startsWith("RESTORE_SESSION:")) {
+                const restoredId = parseInt(msg.split(":")[1]);
+                myPlayerId = restoredId;
+                clearInterval(lobbyInterval);
+                setStatus("🎮 Sessão Restaurada!", "green");
+                switchTab('chat'); // Muda pro chat automaticamente
+            }
+            else if (msg.startsWith("IS_HOST:true")) {
+                isHost = true;
+                document.getElementById("btn-host-panel").classList.add("visible");
+                setStatus("👑 Você é o Host", "green");
+            }
+            else if (msg.startsWith("CHAT_MSG:")) {
+                // FORMATO: CHAT_MSG:AvatarUrl:Remetente:MensagemTexto(ou Imagem)
+                const parts = msg.split(":");
+                if (parts.length >= 4) {
+                    const avatar = parts[1];
+                    const sender = parts[2];
+                    const text = parts.slice(3).join(":"); // Reagrupa caso tenha ':' no texto/url
+                    appendChatMessage(avatar, sender, text);
+                }
+            }
+            else if (msg.startsWith("TURN:")) {
+                const parts = msg.split(":");
+                const currentTurnId = parseInt(parts[1]);
+                const isInputPhase = (parts[2] === "true");
+                
+                if (myPlayerId === null) return;
+                
+                if (!isInputPhase) setStatus("⏳ Processando IA...", "yellow");
+                else if (currentTurnId === myPlayerId) setStatus("🎮 Sua Vez!", "green");
+                else setStatus("⛔ Vez do outro jogador", "red");
+            }
+        }
+
+        /* ==========================================
+           4. LOBBY E PAÍSES
+           ========================================== */
+        function buildLobby(data) {
+            if(!data || data.trim() === "") return;
+            const container = document.getElementById('civButtons');
+            container.innerHTML = ""; 
+            
+            const players = data.split(";");
+            players.forEach(p => {
+                const parts = p.split("=");
+                if (parts.length < 2) return;
+                const pId = parts[0];
+                const pName = parts[1];
+                
+                const div = document.createElement("div");
+                div.className = "lobby-item";
+                div.innerHTML = `
+                    <span style="font-weight:bold;">${pName}</span>
+                    <button style="padding: 5px 15px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer;">Selecionar</button>
+                `;
+                
+                div.onclick = function() {
+                    myPlayerId = parseInt(pId);
+                    document.getElementById("my-player-civ").innerText = pName;
+                    socket.send(`CLAIM:${pId}:${sessionToken}`);
+                    switchTab('chat'); // Força a ida pro chat após escolher
+                    socket.send("GET_LOBBY"); 
+                };
+                container.appendChild(div);
+            });
+        }
+
+        /* ==========================================
+           5. SISTEMA DE CHAT, KIPLY E EMOJIS
+           ========================================== */
+        const chatInput = document.getElementById('chat-input');
+        const chatBox = document.getElementById('chat-box');
+        const kiplyPicker = document.getElementById('kiply-picker');
+
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && this.value.trim() !== '') {
+                sendChat(this.value.trim());
+                this.value = '';
+            }
+        });
+
+        function sendChat(content) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                // Manda AvatarUrl:Nick:Conteúdo
+                const avatar = document.getElementById("my-avatar").src;
+                // Encode simplificado pra não bugar o Split no Java
+                socket.send(`CHAT:${encodeURIComponent(avatar)}:${myNick}:${content}`);
+            }
+        }
+
+        function appendChatMessage(avatarUrl, sender, text) {
+            const div = document.createElement("div");
+            div.className = "chat-msg";
+            
+            // Decodifica a URL do avatar enviada
+            const decAvatar = decodeURIComponent(avatarUrl);
+            
+            // Verifica se é uma mensagem normal ou GIF do Kiply
+            let contentHtml = text;
+            if (text.startsWith("KIPLY_GIF|")) {
+                const gifUrl = text.replace("KIPLY_GIF|", "");
+                contentHtml = `<img src="${gifUrl}" class="gif-img" alt="GIF">`;
+            }
+
+            div.innerHTML = `
+                <div class="sender">
+                    <img src="${decAvatar}" style="width:16px; height:16px; border-radius:50%;"> 
+                    ${sender}
+                </div>
+                ${contentHtml}
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // --- KIPLY GIF API (Simulação/Integração) ---
+        function toggleKiply() { kiplyPicker.classList.toggle('open'); }
+        function toggleEmoji() { chatInput.value += "😀"; chatInput.focus(); } // Placeholder simples
+        
+        let kiplyTimeout;
+        function searchKiply(query) {
+            clearTimeout(kiplyTimeout);
+            kiplyTimeout = setTimeout(async () => {
+                const results = document.getElementById('kiply-results');
+                if(query.trim() === "") { results.innerHTML = "<p>Digite para buscar...</p>"; return; }
+                
+                results.innerHTML = "<p>Buscando...</p>";
+                
+                // NOTA: Implementação Genérica Padrão do Kiply (ou Tenor caso Kiply falhe).
+                // API Key Pública de teste do Tenor usada como Fallback educativo, substitua pela do Kiply.
+                const apiKey = "LIVDSRZULELA"; // Fallback Tenor caso Kiply exija auth complexa
+                const url = `https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=${apiKey}&limit=8`;
+                
+                try {
+                    const res = await fetch(url);
+                    const json = await res.json();
+                    results.innerHTML = "";
+                    json.results.forEach(gif => {
+                        const img = document.createElement("img");
+                        img.src = gif.media[0].tinygif.url; // Preview leve
+                        img.onclick = () => {
+                            sendChat(`KIPLY_GIF|${gif.media[0].gif.url}`); // Envia a tag especial
+                            kiplyPicker.classList.remove('open');
+                        };
+                        results.appendChild(img);
+                    });
+                } catch(e) {
+                    results.innerHTML = "<p>Erro ao buscar GIFs.</p>";
+                }
+            }, 500); // Debounce
+        }
+
+        /* ==========================================
+           6. CONTROLES: MOUSE E MOBILE (TOUCH/ZOOM)
+           ========================================== */
+        let isDragging = false;
+        let initialPinchDistance = null;
+
+        function getCanvasPos(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            if(clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+            return {
+                x: (clientX - rect.left) / rect.width,
+                y: (clientY - rect.top) / rect.height
+            };
+        }
+
+        function sendEvent(action, e) {
+            if (!socket || socket.readyState !== WebSocket.OPEN) return;
+            const pos = getCanvasPos(e.clientX, e.clientY);
+            if(pos) socket.send(`${action}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+        }
+
+        // MOUSE
+        canvas.addEventListener('mousedown', e => { isDragging = true; sendEvent("DOWN", e); });
+        canvas.addEventListener('mouseup', e => { isDragging = false; sendEvent("UP", e); });
+        canvas.addEventListener('mousemove', e => { sendEvent(isDragging ? "DRAG" : "HOVER", e); });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // RODA DO MOUSE (Zoom Desktop)
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            if (!socket || socket.readyState !== WebSocket.OPEN) return;
+            const amount = e.deltaY > 0 ? 1 : -1;
+            socket.send(`WHEEL:${amount}`); // Java precisa interpretar isso em AoCGame.scrolled(amount)
+        });
+
+        // TOUCH (Mobile e Tablets)
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                sendEvent("DOWN", e.touches[0]);
+            } else if (e.touches.length === 2) {
+                // Inicia o Pinch-to-zoom
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault(); // Evita scroll da página
+            if (e.touches.length === 1 && isDragging) {
+                sendEvent("DRAG", e.touches[0]);
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                const currentDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                
+                // Diferença considerável para dar trigger no Zoom
+                if (Math.abs(currentDistance - initialPinchDistance) > 30) {
+                    const amount = currentDistance > initialPinchDistance ? -1 : 1; // Expande = Zoom in (-1), Pinça = Zoom out (1)
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(`WHEEL:${amount}`);
+                    }
+                    initialPinchDistance = currentDistance; // Reseta pro próximo "tick" de zoom
+                }
+            }
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', e => {
+            if (e.touches.length === 0) {
+                isDragging = false;
+                initialPinchDistance = null;
+                sendEvent("UP", e.changedTouches[0]);
+            }
+        });
+
+        // TECLADO DO JOGO (Ignora se tiver digitando no Chat)
+        window.addEventListener('keydown', e => {
+            if (document.activeElement.tagName === "INPUT") return;
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                if (e.key === "Backspace") socket.send("KEY_TYPED:\b");
+                else if (e.key === "Enter") socket.send("KEY_TYPED:\r");
+            }
+        });
+
+        window.addEventListener('keypress', e => {
+            if (document.activeElement.tagName === "INPUT") return;
+            if(e.key === " ") e.preventDefault(); 
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send("KEY_TYPED:" + e.key);
+            }
+        });
+
+        /* ==========================================
+           7. PAINEL DO HOST (Implementações Futuras)
+           ========================================== */
+        const hostModal = document.getElementById("host-modal");
+        function openHostPanel() { hostModal.classList.remove("hidden"); }
+        function closeHostPanel() { hostModal.classList.add("hidden"); }
+        
+        function forceOverride() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send("HOST_CMD:OVERRIDE");
+                alert("Comando de Controle Forçado enviado ao Java!");
+                closeHostPanel();
+            }
+        }
+    </script>
+</body>
+</html>
