@@ -1,660 +1,1010 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AOH2 - Web Multiplayer</title>
-    <style>
-        /* ==========================================
-           DESIGN SYSTEM & VARIÁVEIS (Estilo Discord)
-           ========================================== */
-        :root {
-            --bg-primary: #313338;
-            --bg-secondary: #2b2d31;
-            --bg-tertiary: #1e1f22;
-            --bg-quaternary: #111214;
-            --accent: #5865f2;
-            --accent-hover: #4752c4;
-            --danger: #da373c;
-            --danger-hover: #a1282b;
-            --success: #23a559;
-            --text-normal: #dbdee1;
-            --text-muted: #949ba4;
-            --text-header: #f2f3f5;
-            --border-color: #1e1f22;
-            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AoH2 — Sala de Comando Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================
+   TOKENS — "Sala de Guerra / Atlas de Campanha"
+   Paleta: tinta naval profunda + latão envelhecido (mapas
+   antigos, legendas de latão, selos de cera).
+   ========================================================== */
+:root{
+  --ink-950:#0a0d13; --ink-900:#10141c; --ink-850:#141924; --ink-800:#1a2130;
+  --ink-750:#212939; --ink-700:#2a3345; --hairline:rgba(201,162,75,0.14);
+  --brass:#c9a24b; --brass-bright:#e8c46e; --brass-dim:#8a713a;
+  --crimson:#b5432f; --crimson-bright:#d65a41;
+  --emerald:#4c8d63; --emerald-bright:#63ad7c;
+  --parchment:#ece4cf;
+  --text-0:#eee9db; --text-1:#b9b2a0; --text-2:#7c7767;
+  --r-sm:8px; --r-md:14px; --r-lg:22px; --r-full:999px;
+  --f-display:'Cinzel', serif; --f-body:'Manrope', system-ui, sans-serif; --f-mono:'JetBrains Mono', monospace;
+  --shadow-lift:0 12px 40px rgba(0,0,0,0.45);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{width:100%; height:100%; overflow:hidden;}
+body{
+  background:
+    radial-gradient(ellipse 900px 600px at 12% -10%, rgba(201,162,75,0.08), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 110%, rgba(76,141,99,0.06), transparent 60%),
+    var(--ink-950);
+  color:var(--text-0); font-family:var(--f-body); display:flex;
+}
+::selection{ background:rgba(201,162,75,0.35); }
+::-webkit-scrollbar{ width:8px; height:8px; }
+::-webkit-scrollbar-thumb{ background:var(--ink-700); border-radius:var(--r-full); }
+::-webkit-scrollbar-thumb:hover{ background:var(--brass-dim); }
+:focus-visible{ outline:2px solid var(--brass); outline-offset:2px; }
+button, input{ font-family:inherit; }
+.hidden{ display:none !important; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body, html { 
-            width: 100%; height: 100%; 
-            background-color: var(--bg-primary); color: var(--text-normal); 
-            font-family: var(--font-family); overflow: hidden; display: flex; 
-        }
+/* ==========================================================
+   COMPONENTES COMPARTILHADOS
+   ========================================================== */
+.icon{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  font-family:var(--f-body); font-weight:700; font-size:14px; letter-spacing:.2px;
+  border:1px solid transparent; border-radius:var(--r-sm); cursor:pointer;
+  transition:transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+  padding:11px 18px;
+}
+.btn:active{ transform:scale(0.97); }
+.btn-brass{ background:linear-gradient(180deg,var(--brass-bright),var(--brass)); color:#221a08; }
+.btn-brass:hover{ filter:brightness(1.08); }
+.btn-ghost{ background:var(--ink-800); color:var(--text-0); border-color:var(--hairline); }
+.btn-ghost:hover{ background:var(--ink-750); border-color:var(--brass-dim); }
+.btn-danger{ background:var(--crimson); color:#fff0ec; }
+.btn-danger:hover{ background:var(--crimson-bright); }
+.btn-icon{ width:38px; height:38px; padding:0; border-radius:var(--r-full); background:rgba(255,255,255,0.05); color:var(--text-1); border:1px solid var(--hairline); }
+.btn-icon:hover{ background:rgba(255,255,255,0.1); color:var(--text-0); }
 
-        /* ==========================================
-           MODAIS E OVERLAYS
-           ========================================== */
-        .modal-overlay {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center;
-            z-index: 9999; backdrop-filter: blur(5px);
-        }
-        .modal-box {
-            background: var(--bg-primary); padding: 30px; border-radius: 12px; width: 400px;
-            box-shadow: 0px 10px 30px rgba(0,0,0,0.5); text-align: center;
-        }
-        .modal-box h2 { color: var(--text-header); margin-bottom: 10px; }
-        .modal-box p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
-        .modal-input {
-            width: 100%; padding: 12px; border-radius: 6px; border: none; background: var(--bg-tertiary);
-            color: white; font-size: 16px; outline: none; margin-bottom: 20px; text-align: center;
-        }
-        .modal-btn {
-            width: 100%; padding: 12px; border: none; border-radius: 6px; background: var(--accent);
-            color: white; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px;
-        }
-        .modal-btn:hover { background: var(--accent-hover); }
-        .hidden { display: none !important; }
+/* Selo de compasso — spinner de carregamento (elemento-assinatura) */
+.compass-seal{ width:34px; height:34px; animation:spin 2.6s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){ .compass-seal{ animation:none; } }
 
-        /* ==========================================
-           ESTRUTURA PRINCIPAL
-           ========================================== */
-        .left-nav {
-            width: 70px; background-color: var(--bg-quaternary); display: flex; flex-direction: column;
-            align-items: center; padding-top: 15px; border-right: 1px solid var(--border-color); z-index: 10;
-        }
-        .nav-icon {
-            width: 48px; height: 48px; background-color: var(--bg-primary); border-radius: 50%;
-            margin-bottom: 15px; cursor: pointer; transition: 0.2s; display: flex;
-            justify-content: center; align-items: center; font-size: 20px; font-weight: bold;
-        }
-        .nav-icon:hover, .nav-icon.active { border-radius: 30%; background-color: var(--accent); color: white; }
-        .nav-icon.host-icon { background-color: var(--success); display: none; }
-        .nav-icon.host-icon.visible { display: flex; }
+/* ==========================================================
+   MODAIS
+   ========================================================== */
+.modal-overlay{
+  position:absolute; inset:0; background:rgba(6,7,10,0.82); backdrop-filter:blur(6px);
+  display:flex; justify-content:center; align-items:center; z-index:9999; padding:20px;
+}
+.modal-box{
+  width:420px; max-width:100%; background:linear-gradient(180deg,var(--ink-850),var(--ink-900));
+  border:1px solid var(--hairline); border-radius:var(--r-lg); padding:34px 30px;
+  box-shadow:var(--shadow-lift); text-align:center; position:relative; overflow:hidden;
+}
+.modal-box::before{
+  content:""; position:absolute; top:-60px; left:50%; transform:translateX(-50%);
+  width:260px; height:180px; background:radial-gradient(circle, rgba(201,162,75,0.14), transparent 70%);
+  pointer-events:none;
+}
+.modal-eyebrow{ font-family:var(--f-mono); font-size:11px; letter-spacing:2.5px; color:var(--brass); text-transform:uppercase; margin-bottom:10px; }
+.modal-box h2{ font-family:var(--f-display); font-weight:600; font-size:24px; color:var(--parchment); margin-bottom:8px; letter-spacing:.3px; }
+.modal-box p{ color:var(--text-1); font-size:13.5px; margin-bottom:22px; line-height:1.5; }
+.modal-input{
+  width:100%; padding:13px 16px; border-radius:var(--r-sm); border:1px solid var(--hairline);
+  background:var(--ink-950); color:var(--text-0); font-size:15px; outline:none; margin-bottom:16px;
+  text-align:center; transition:border-color .15s ease;
+}
+.modal-input:focus{ border-color:var(--brass); }
+.modal-box .btn{ width:100%; padding:13px; font-size:15px; }
+.modal-note{ margin-top:16px; font-size:11.5px; color:var(--text-2); }
 
-        .main-content { flex: 1; display: flex; flex-direction: column; background-color: var(--bg-primary); position: relative;}
-        
-        .video-area { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; background-color: #000; overflow: hidden;}
-        canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
-        
-        #status-pill {
-            position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7);
-            padding: 6px 15px; border-radius: 20px; font-size: 13px; pointer-events: none;
-            transition: all 0.3s; font-weight: bold; z-index: 5;
-        }
+#host-modal .modal-box{ width:520px; text-align:left; }
+#host-modal h2{ display:flex; align-items:center; gap:10px; }
+.host-list{ text-align:left; max-height:220px; overflow-y:auto; margin-bottom:18px; background:var(--ink-950); border:1px solid var(--hairline); padding:8px; border-radius:var(--r-md); }
+.host-empty{ padding:18px; text-align:center; color:var(--text-2); font-size:13px; }
+.host-actions{ display:flex; gap:10px; }
+.host-actions .btn{ flex:1; }
+.host-caption{ font-size:11.5px; color:var(--text-2); background:var(--ink-950); border:1px dashed var(--hairline); border-radius:var(--r-sm); padding:10px 12px; margin-top:12px; line-height:1.5; }
 
-        .bottom-bar {
-            height: 60px; background-color: var(--bg-secondary); display: flex; align-items: center;
-            padding: 0 20px; border-top: 1px solid var(--border-color); justify-content: space-between;
-        }
-        .player-profile { display: flex; align-items: center; gap: 10px; }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-tertiary); overflow: hidden; }
-        .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .player-info { display: flex; flex-direction: column; }
-        .player-name { font-size: 14px; font-weight: bold; color: var(--text-header); }
-        .player-status { font-size: 11px; color: var(--success); }
+/* ==========================================================
+   ESTRUTURA PRINCIPAL
+   ========================================================== */
+.left-nav{
+  width:74px; background:var(--ink-950); border-right:1px solid var(--hairline);
+  display:flex; flex-direction:column; align-items:center; padding:18px 0; gap:14px; z-index:20;
+}
+.brand-mark{
+  width:46px; height:46px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center;
+  font-family:var(--f-display); font-weight:700; font-size:15px; color:var(--ink-950);
+  background:linear-gradient(160deg,var(--brass-bright),var(--brass)); letter-spacing:.5px;
+  box-shadow:0 6px 18px rgba(201,162,75,0.25);
+}
+.rail-icon{
+  width:46px; height:46px; border-radius:var(--r-md); background:var(--ink-850); border:1px solid var(--hairline);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-1);
+  transition:all .15s ease;
+}
+.rail-icon:hover{ color:var(--text-0); border-color:var(--brass-dim); }
+.rail-icon.host-icon{ display:none; color:var(--emerald-bright); border-color:rgba(76,141,99,0.4); }
+.rail-icon.host-icon.visible{ display:flex; }
+.rail-spacer{ flex:1; }
 
-        /* ==========================================
-           BARRA LATERAL DIREITA (Chat & Lobby)
-           ========================================== */
-        .right-sidebar {
-            width: 320px; background-color: var(--bg-secondary); display: flex; flex-direction: column;
-            border-left: 1px solid var(--border-color); transition: 0.3s;
-        }
-        .sidebar-header { padding: 15px; border-bottom: 1px solid var(--bg-tertiary); font-weight: bold; display: flex; justify-content: space-between; }
-        .tabs { display: flex; gap: 15px; font-size: 14px; color: var(--text-muted); }
-        .tab { cursor: pointer; padding-bottom: 5px; border-bottom: 2px solid transparent; }
-        .tab.active { color: var(--text-header); border-bottom-color: var(--accent); }
-        
-        .sidebar-content { flex: 1; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; gap: 10px;}
-        
-        /* Lobby */
-        .lobby-item {
-            background: var(--bg-tertiary); padding: 10px; border-radius: 8px; display: flex;
-            justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s;
-        }
-        .lobby-item:hover { background: var(--bg-primary); transform: translateY(-2px); }
-        .lobby-item.disabled { opacity: 0.5; pointer-events: none; }
-        
-        /* Chat */
-        .chat-area { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-        .chat-msg { background-color: var(--bg-tertiary); padding: 10px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-wrap: break-word;}
-        .chat-msg .sender { font-weight: bold; color: #f1c40f; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-size: 12px;}
-        .chat-msg img.gif-img { max-width: 100%; border-radius: 6px; margin-top: 5px; }
-        
-        .sidebar-footer { padding: 15px; background-color: var(--bg-secondary); }
-        .chat-input-wrapper { display: flex; background: var(--bg-tertiary); border-radius: 8px; padding: 5px 10px; align-items: center; gap: 8px;}
-        .chat-input { flex: 1; background: transparent; border: none; color: white; outline: none; padding: 5px; font-size: 14px;}
-        .action-icon { cursor: pointer; color: var(--text-muted); font-size: 18px; transition: 0.2s; }
-        .action-icon:hover { color: var(--text-header); }
+.main-content{ flex:1; display:flex; flex-direction:column; position:relative; min-width:0; }
 
-        /* Kiply Picker Modal */
-        .kiply-picker {
-            position: absolute; bottom: 80px; right: 20px; width: 280px; height: 350px;
-            background: var(--bg-primary); border-radius: 8px; box-shadow: 0px 5px 20px rgba(0,0,0,0.5);
-            display: flex; flex-direction: column; padding: 10px; z-index: 50; display: none;
-        }
-        .kiply-picker.open { display: flex; }
-        .kiply-picker input { width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--bg-tertiary); color: white; outline: none; margin-bottom: 10px;}
-        .kiply-results { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .kiply-results img { width: 100%; border-radius: 4px; cursor: pointer; object-fit: cover; height: 80px;}
+.video-area{
+  flex:1; position:relative; display:flex; justify-content:center; align-items:center;
+  background:
+    linear-gradient(rgba(10,13,19,0.55), rgba(10,13,19,0.75)),
+    repeating-linear-gradient(0deg, rgba(201,162,75,0.035) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, rgba(201,162,75,0.035) 0 1px, transparent 1px 40px),
+    var(--ink-900);
+  overflow:hidden;
+}
+canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; z-index:1; }
 
-        /* Mobile tweaks */
-        @media (max-width: 768px) {
-            .left-nav { display: none; } /* Esconde navbar esq. no mobile */
-            .right-sidebar { position: absolute; right: -100%; height: 100%; z-index: 100; box-shadow: -5px 0px 20px rgba(0,0,0,0.8);}
-            .right-sidebar.open { right: 0; }
-            .mobile-chat-toggle { display: block !important; cursor: pointer; background: var(--accent); padding: 8px 15px; border-radius: 6px; font-weight: bold;}
-        }
-        .mobile-chat-toggle { display: none; }
-    </style>
+/* Overlay superior — status + presença */
+.hud-top{
+  position:absolute; top:16px; left:16px; right:16px; z-index:5;
+  display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; gap:10px;
+}
+.hud-top > *{ pointer-events:auto; }
+#status-pill{
+  display:flex; align-items:center; gap:9px; background:rgba(16,20,28,0.82); border:1px solid var(--hairline);
+  backdrop-filter:blur(8px); padding:8px 16px 8px 10px; border-radius:var(--r-full); font-size:12.5px;
+  font-weight:700; letter-spacing:.3px; color:var(--text-0); box-shadow:var(--shadow-lift);
+}
+.status-dot{ width:8px; height:8px; border-radius:50%; background:var(--text-2); flex-shrink:0; transition:background .2s; box-shadow:0 0 0 3px rgba(255,255,255,0.04); }
+.status-dot.dot-green{ background:var(--emerald-bright); box-shadow:0 0 0 3px rgba(76,141,99,0.22); }
+.status-dot.dot-yellow{ background:var(--brass-bright); box-shadow:0 0 0 3px rgba(201,162,75,0.22); }
+.status-dot.dot-red{ background:var(--crimson-bright); box-shadow:0 0 0 3px rgba(181,67,47,0.22); }
+
+.hud-stats{ display:flex; gap:8px; }
+.stat-chip{
+  display:flex; align-items:center; gap:7px; background:rgba(16,20,28,0.82); border:1px solid var(--hairline);
+  backdrop-filter:blur(8px); padding:8px 14px; border-radius:var(--r-full); font-size:12px; color:var(--text-1);
+  font-family:var(--f-mono); box-shadow:var(--shadow-lift);
+}
+.stat-chip b{ color:var(--parchment); font-weight:600; }
+.stat-chip .icon{ width:14px; height:14px; color:var(--brass); }
+
+/* Overlay inferior — controles flutuantes */
+.hud-bottom{
+  position:absolute; bottom:16px; left:0; right:0; z-index:5; display:flex; justify-content:center; pointer-events:none;
+}
+.floating-controls{
+  pointer-events:auto; display:flex; align-items:center; gap:6px; background:rgba(16,20,28,0.85);
+  border:1px solid var(--hairline); backdrop-filter:blur(10px); padding:6px; border-radius:var(--r-full);
+  box-shadow:var(--shadow-lift);
+}
+
+/* Barra de perfil inferior */
+.bottom-bar{
+  height:66px; background:var(--ink-900); border-top:1px solid var(--hairline);
+  display:flex; align-items:center; padding:0 18px; justify-content:space-between; gap:12px; z-index:10;
+}
+.player-profile{ display:flex; align-items:center; gap:11px; min-width:0; }
+.avatar{ width:42px; height:42px; border-radius:50%; background:var(--ink-800); overflow:hidden; border:2px solid var(--brass-dim); flex-shrink:0; }
+.avatar img{ width:100%; height:100%; object-fit:cover; }
+.avatar.sm{ width:26px; height:26px; border-width:1px; }
+.player-info{ display:flex; flex-direction:column; min-width:0; }
+.player-name{ font-size:14px; font-weight:700; color:var(--text-0); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.player-status{ font-size:11px; color:var(--brass); font-family:var(--f-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bottom-actions{ display:flex; align-items:center; gap:8px; }
+.mobile-chat-toggle{ display:none; }
+
+/* ==========================================================
+   BARRA LATERAL DIREITA
+   ========================================================== */
+.right-sidebar{
+  width:352px; background:var(--ink-900); border-left:1px solid var(--hairline);
+  display:flex; flex-direction:column; transition:right .28s ease; z-index:15;
+}
+.sidebar-header{ padding:16px 18px 0; }
+.tabs{ display:flex; gap:22px; border-bottom:1px solid var(--hairline); }
+.tab{
+  cursor:pointer; padding:0 0 13px; font-size:13.5px; font-weight:700; color:var(--text-2);
+  border-bottom:2px solid transparent; display:flex; align-items:center; gap:7px; transition:color .15s;
+}
+.tab .icon{ width:16px; height:16px; }
+.tab.active{ color:var(--brass-bright); border-bottom-color:var(--brass); }
+.tab:hover:not(.active){ color:var(--text-0); }
+.tab-badge{ background:var(--ink-750); color:var(--text-1); font-size:10.5px; font-family:var(--f-mono); padding:1px 7px; border-radius:var(--r-full); }
+
+.sidebar-content{ flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* --- Aba Jogadores/Lobby --- */
+#view-lobby{ padding:14px 18px; overflow-y:auto; }
+.lobby-search{
+  display:flex; align-items:center; gap:8px; background:var(--ink-950); border:1px solid var(--hairline);
+  border-radius:var(--r-sm); padding:9px 12px; margin-bottom:12px;
+}
+.lobby-search .icon{ width:15px; height:15px; color:var(--text-2); }
+.lobby-search input{ flex:1; background:transparent; border:none; outline:none; color:var(--text-0); font-size:13px; }
+.lobby-hint{ font-size:11.5px; color:var(--text-2); margin-bottom:12px; line-height:1.5; }
+#civButtons{ display:flex; flex-direction:column; gap:7px; }
+.lobby-item{
+  background:var(--ink-850); border:1px solid var(--hairline); padding:11px 12px; border-radius:var(--r-md);
+  display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all .15s ease; gap:10px;
+}
+.lobby-item:hover{ background:var(--ink-800); border-color:var(--brass-dim); transform:translateY(-1px); }
+.lobby-item.mine{ border-color:var(--brass); background:linear-gradient(90deg, rgba(201,162,75,0.1), var(--ink-850)); }
+.civ-id{ display:flex; align-items:center; gap:10px; min-width:0; }
+.civ-medal{
+  width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-family:var(--f-display); font-weight:700; font-size:12px; color:#fff; flex-shrink:0; letter-spacing:.3px;
+}
+.civ-name{ font-size:13.5px; font-weight:700; color:var(--text-0); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.civ-claim-btn{
+  padding:6px 13px; background:var(--ink-750); border:1px solid var(--hairline); border-radius:var(--r-full);
+  color:var(--text-1); font-size:11.5px; font-weight:700; cursor:pointer; flex-shrink:0; transition:all .15s ease;
+}
+.lobby-item:hover .civ-claim-btn{ background:var(--brass); color:#221a08; border-color:var(--brass); }
+.lobby-item.mine .civ-claim-btn{ background:var(--brass); color:#221a08; border-color:var(--brass); }
+.lobby-empty{ text-align:center; padding:40px 20px; color:var(--text-2); }
+.lobby-empty .compass-seal{ margin:0 auto 14px; opacity:.5; }
+.lobby-empty p{ font-size:13px; line-height:1.5; }
+
+/* --- Aba Chat --- */
+#view-chat{ flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.chat-area{ flex:1; display:flex; flex-direction:column; gap:12px; overflow-y:auto; padding:16px 18px; }
+.chat-system{ text-align:center; color:var(--text-2); font-size:11.5px; font-family:var(--f-mono); padding:4px 0; }
+.chat-row{ display:flex; gap:9px; max-width:92%; }
+.chat-row.own{ align-self:flex-end; flex-direction:row-reverse; }
+.chat-bubble{ background:var(--ink-850); border:1px solid var(--hairline); padding:9px 12px; border-radius:var(--r-md); font-size:13.5px; line-height:1.45; word-wrap:break-word; min-width:0; }
+.chat-row.own .chat-bubble{ background:linear-gradient(160deg, rgba(201,162,75,0.18), var(--ink-850)); border-color:var(--brass-dim); }
+.chat-meta{ display:flex; align-items:baseline; gap:7px; margin-bottom:3px; }
+.chat-sender{ font-weight:700; font-size:11.5px; color:var(--brass-bright); }
+.chat-row.own .chat-sender{ color:var(--emerald-bright); }
+.chat-time{ font-size:10px; color:var(--text-2); font-family:var(--f-mono); }
+.chat-bubble img.gif-img{ max-width:220px; border-radius:8px; margin-top:4px; display:block; }
+
+.sidebar-footer{ padding:14px 16px 16px; border-top:1px solid var(--hairline); position:relative; }
+.chat-input-wrapper{ display:flex; background:var(--ink-850); border:1px solid var(--hairline); border-radius:var(--r-full); padding:5px 6px 5px 14px; align-items:center; gap:4px; }
+.chat-input-wrapper:focus-within{ border-color:var(--brass-dim); }
+.chat-input{ flex:1; background:transparent; border:none; color:var(--text-0); outline:none; padding:8px 0; font-size:13.5px; min-width:0; }
+.chat-input::placeholder{ color:var(--text-2); }
+.action-icon{ cursor:pointer; color:var(--text-2); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all .15s ease; flex-shrink:0; }
+.action-icon:hover{ color:var(--brass-bright); background:rgba(255,255,255,0.05); }
+.action-icon.send{ background:var(--brass); color:#221a08; }
+.action-icon.send:hover{ background:var(--brass-bright); color:#221a08; }
+
+/* --- Popovers (GIF / Emoji) --- */
+.popover{
+  position:absolute; bottom:76px; right:16px; width:308px; height:380px; background:var(--ink-850);
+  border:1px solid var(--hairline); border-radius:var(--r-lg); box-shadow:var(--shadow-lift);
+  display:none; flex-direction:column; padding:12px; z-index:50;
+}
+.popover.open{ display:flex; }
+.popover-search{ width:100%; padding:10px 12px; border-radius:var(--r-sm); border:1px solid var(--hairline); background:var(--ink-950); color:var(--text-0); outline:none; margin-bottom:10px; font-size:13px; }
+.popover-search:focus{ border-color:var(--brass); }
+.kiply-results{ flex:1; overflow-y:auto; display:grid; grid-template-columns:1fr 1fr; gap:6px; align-content:start; }
+.kiply-results img{ width:100%; height:88px; border-radius:6px; cursor:pointer; object-fit:cover; transition:transform .12s ease, filter .12s; background:var(--ink-950); }
+.kiply-results img:hover{ transform:scale(1.04); filter:brightness(1.1); }
+.kiply-note{ grid-column:span 2; text-align:center; color:var(--text-2); font-size:12px; padding:20px 10px; }
+.kiply-skel{ background:linear-gradient(100deg, var(--ink-800) 30%, var(--ink-750) 45%, var(--ink-800) 60%); background-size:200% 100%; animation:shimmer 1.2s infinite; border-radius:6px; height:88px; }
+@keyframes shimmer{ from{ background-position:150% 0; } to{ background-position:-50% 0; } }
+.popover-brand{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.popover-brand span{ font-size:10.5px; font-family:var(--f-mono); color:var(--text-2); letter-spacing:1px; text-transform:uppercase; }
+
+#emoji-popover{ padding:0; overflow:hidden; }
+#emoji-popover emoji-picker{
+  width:100%; height:100%;
+  --background: var(--ink-850); --border-color: var(--hairline);
+  --indicator-color: var(--brass); --input-border-color: var(--hairline);
+  --input-font-color: var(--text-0); --input-placeholder-color: var(--text-2);
+  --outline-color: var(--brass); --category-font-color: var(--text-2);
+  --button-active-background: rgba(201,162,75,0.18); --button-hover-background: rgba(255,255,255,0.06);
+  --num-columns:7;
+}
+.emoji-fallback{ display:none; grid-template-columns:repeat(7,1fr); gap:2px; padding:10px; overflow-y:auto; height:100%; }
+.emoji-fallback button{ background:none; border:none; font-size:20px; cursor:pointer; border-radius:6px; padding:5px; }
+.emoji-fallback button:hover{ background:rgba(255,255,255,0.07); }
+
+/* --- Toasts --- */
+#toast-container{ position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:200; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
+.toast{
+  background:rgba(16,20,28,0.92); border:1px solid var(--hairline); backdrop-filter:blur(8px);
+  padding:10px 18px; border-radius:var(--r-full); font-size:12.5px; font-weight:600; color:var(--text-0);
+  box-shadow:var(--shadow-lift); animation:toast-in .25s ease; display:flex; align-items:center; gap:8px;
+}
+.toast.warn{ border-color:rgba(201,162,75,0.4); }
+.toast.error{ border-color:rgba(181,67,47,0.4); }
+.toast .icon{ width:14px; height:14px; color:var(--brass); }
+@keyframes toast-in{ from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:translateY(0); } }
+
+/* ==========================================================
+   RESPONSIVO
+   ========================================================== */
+@media (max-width: 860px){
+  .left-nav{ display:none; }
+  .right-sidebar{ position:absolute; right:-100%; top:0; bottom:0; height:100%; box-shadow:-10px 0 30px rgba(0,0,0,0.6); }
+  .right-sidebar.open{ right:0; }
+  .mobile-chat-toggle{ display:flex; }
+  .hud-stats .stat-chip:not(.stat-primary){ display:none; }
+  .popover{ width:calc(100% - 32px); right:16px; }
+}
+</style>
 </head>
 <body>
 
-    <!-- 1. MODAL DE LOGIN (Identidade) -->
-    <div class="modal-overlay" id="login-modal">
-        <div class="modal-box">
-            <h2>Bem-vindo ao AOH2</h2>
-            <p>Insira seu nickname para se conectar ao servidor.</p>
-            <input type="text" id="nickname-input" class="modal-input" placeholder="Seu Nickname..." maxlength="16">
-            <button class="modal-btn" onclick="joinServer()">Entrar na Partida</button>
+<div id="toast-container"></div>
+
+<!-- 1. MODAL DE LOGIN -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal-box">
+    <div class="modal-eyebrow">Age of History II · Multiplayer Web</div>
+    <h2>Convocação ao Mapa</h2>
+    <p>Insira seu nome de comandante para ingressar na sala de campanha.</p>
+    <input type="text" id="nickname-input" class="modal-input" placeholder="Seu nickname..." maxlength="16" autocomplete="off">
+    <button class="btn btn-brass" onclick="joinServer()" style="width:100%;">Entrar na Campanha</button>
+    <div class="modal-note">Sua sessão fica salva neste navegador — feche e volte quando quiser.</div>
+  </div>
+</div>
+
+<!-- 2. PAINEL DO HOST -->
+<div class="modal-overlay hidden" id="host-modal">
+  <div class="modal-box">
+    <h2>
+      <svg class="icon" style="width:20px;height:20px;color:var(--brass);" viewBox="0 0 24 24"><path d="M3 19h18M5 19l-1-9 5 3 3-6 3 6 5-3-1 9"/></svg>
+      Painel do Host
+    </h2>
+    <p>Gerencie a partida e o controle da tela.</p>
+    <div class="host-list" id="host-player-list">
+      <div class="host-empty">Lista de comandantes conectados aparecerá aqui.</div>
+    </div>
+    <div class="host-actions">
+      <button class="btn btn-ghost" onclick="closeHostPanel()">Fechar</button>
+      <button class="btn btn-danger" onclick="forceOverride()">Forçar Controle</button>
+    </div>
+    <div class="host-caption">Este comando é enviado ao servidor, mas só terá efeito quando o lado Java implementar o tratamento de <code>HOST_CMD</code>.</div>
+  </div>
+</div>
+
+<!-- NAVEGAÇÃO ESQUERDA -->
+<div class="left-nav">
+  <div class="brand-mark" title="AoH2">AoH</div>
+  <div class="rail-icon host-icon" id="btn-host-panel" title="Painel do Host" onclick="openHostPanel()">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M3 19h18M5 19l-1-9 5 3 3-6 3 6 5-3-1 9"/></svg>
+  </div>
+  <div class="rail-spacer"></div>
+  <div class="rail-icon" id="btn-invite" title="Copiar link de convite" onclick="copyInviteLink()">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L12.5 19.5"/></svg>
+  </div>
+</div>
+
+<!-- CONTEÚDO CENTRAL -->
+<div class="main-content">
+  <div class="video-area" id="video-area">
+    <div class="hud-top">
+      <div id="status-pill"><span class="status-dot" id="status-dot"></span><span id="status-text">Autenticando...</span></div>
+      <div class="hud-stats">
+        <div class="stat-chip stat-primary" id="chip-nations" title="Nações na partida">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-3-3.87M4 21v-2a4 4 0 0 1 3-3.87M16 3.13a4 4 0 0 1 0 7.75M8 3.13a4 4 0 0 0 0 7.75M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>
+          <span><b id="nations-count">0</b> nações</span>
         </div>
+        <div class="stat-chip" id="chip-turn" title="Turno atual">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+          <span id="turn-text">—</span>
+        </div>
+      </div>
     </div>
 
-    <!-- 2. PAINEL DO HOST (Escondido por padrão) -->
-    <div class="modal-overlay hidden" id="host-modal">
-        <div class="modal-box" style="width: 500px;">
-            <h2>👑 Painel do Host</h2>
-            <p>Gerencie os jogadores e controle a partida.</p>
-            <div id="host-player-list" style="text-align: left; max-height: 200px; overflow-y: auto; margin-bottom: 15px; background: var(--bg-tertiary); padding: 10px; border-radius: 8px;">
-                <!-- Lista injetada pelo JS -->
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="modal-btn" style="background: var(--danger);" onclick="closeHostPanel()">Fechar Painel</button>
-                <button class="modal-btn" onclick="forceOverride()">Forçar Controle de Tela</button>
-            </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud-bottom">
+      <div class="floating-controls">
+        <div class="btn-icon" title="Áudio (em breve)" style="cursor:default; opacity:.55;">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
         </div>
+        <div class="btn-icon" title="Tela cheia" onclick="toggleFullScreen()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </div>
+        <div class="mobile-chat-toggle btn-icon" onclick="toggleSidebar()" title="Chat e Jogadores" style="width:38px;height:38px;">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="player-profile">
+      <div class="avatar"><img id="my-avatar" src="" alt="Avatar"></div>
+      <div class="player-info">
+        <span class="player-name" id="my-player-name">Visitante</span>
+        <span class="player-status" id="my-player-civ">Visualizando</span>
+      </div>
+    </div>
+    <div class="bottom-actions">
+      <button class="btn btn-ghost" onclick="copyInviteLink()" title="Copiar link de convite" style="padding:10px 16px;">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L12.5 19.5"/></svg>
+        <span class="hide-mobile">Convidar</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- BARRA DIREITA -->
+<div class="right-sidebar" id="right-sidebar">
+  <div class="sidebar-header">
+    <div class="tabs">
+      <div class="tab active" id="tab-lobby" onclick="switchTab('lobby')">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-3-3.87M4 21v-2a4 4 0 0 1 3-3.87M16 3.13a4 4 0 0 1 0 7.75M8 3.13a4 4 0 0 0 0 7.75M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>
+        Jogadores <span class="tab-badge" id="lobby-tab-badge">0</span>
+      </div>
+      <div class="tab" id="tab-chat" onclick="switchTab('chat')">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        Chat
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-content">
+    <!-- ABA LOBBY -->
+    <div id="view-lobby">
+      <div class="lobby-search">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="lobby-filter" placeholder="Buscar nação..." oninput="renderLobby()">
+      </div>
+      <div class="lobby-hint">Escolha uma nação para assumir o comando. A lista é sincronizada com todos os comandantes conectados ao servidor.</div>
+      <div id="civButtons"></div>
     </div>
 
-    <!-- NAVEGAÇÃO ESQUERDA -->
-    <div class="left-nav">
-        <div class="nav-icon active" title="Jogo">AOH</div>
-        <div class="nav-icon host-icon" id="btn-host-panel" title="Painel do Host" onclick="openHostPanel()">👑</div>
+    <!-- ABA CHAT -->
+    <div id="view-chat" class="hidden">
+      <div class="chat-area" id="chat-box">
+        <div class="chat-system">Bem-vindo à sala de comando. Respeite os demais comandantes.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="chat-input-wrapper">
+      <span class="action-icon" title="Emojis" onclick="toggleEmoji()">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+      </span>
+      <span class="action-icon" title="GIFs" onclick="toggleKiply()">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 10v4M13 10v4M13 12h1.5M18 10v4M18 12h-2"/></svg>
+      </span>
+      <input type="text" id="chat-input" class="chat-input" placeholder="Enviar mensagem...">
+      <span class="action-icon send" title="Enviar" onclick="submitChatInput()">
+        <svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      </span>
     </div>
 
-    <!-- CONTEÚDO CENTRAL -->
-    <div class="main-content">
-        <div class="video-area" id="video-area">
-            <div id="status-pill">⏳ Autenticando...</div>
-            <canvas id="gameCanvas"></canvas>
-        </div>
-        
-        <div class="bottom-bar">
-            <div class="player-profile">
-                <div class="avatar"><img id="my-avatar" src="" alt="Avatar"></div>
-                <div class="player-info">
-                    <span class="player-name" id="my-player-name">Visitante</span>
-                    <span class="player-status" id="my-player-civ">Visualizando</span>
-                </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="mobile-chat-toggle" onclick="toggleSidebar()">💬 Chat & Lobby</div>
-                <span title="Volume (Em breve)" style="cursor: pointer; font-size: 20px;">🔊</span>
-                <span title="Tela Cheia" style="cursor: pointer; font-size: 20px;" onclick="toggleFullScreen()">⛶</span>
-            </div>
-        </div>
+    <!-- POPOVER GIF (Kiply) -->
+    <div class="popover" id="kiply-picker">
+      <div class="popover-brand"><span>GIFs · Kiply</span></div>
+      <input type="text" id="kiply-search" class="popover-search" placeholder="Pesquisar GIFs..." oninput="searchKiply(this.value)">
+      <div class="kiply-results" id="kiply-results">
+        <div class="kiply-note" style="grid-column:span 2;">Carregando em alta...</div>
+      </div>
     </div>
 
-    <!-- BARRA DIREITA (LOBBY & CHAT) -->
-    <div class="right-sidebar" id="right-sidebar">
-        <div class="sidebar-header">
-            <div class="tabs">
-                <div class="tab active" id="tab-lobby" onclick="switchTab('lobby')">Lobby / Países</div>
-                <div class="tab" id="tab-chat" onclick="switchTab('chat')">Chat Global</div>
-            </div>
-        </div>
-        
-        <!-- ABA LOBBY -->
-        <div class="sidebar-content" id="view-lobby">
-            <p style="font-size: 12px; color: var(--text-muted);">Aguardando o Host liberar os países...</p>
-            <div id="civButtons"></div>
-        </div>
-
-        <!-- ABA CHAT -->
-        <div class="sidebar-content hidden" id="view-chat">
-            <div class="chat-area" id="chat-box">
-                <div class="chat-msg" style="text-align: center; color: var(--text-muted); background: transparent;">
-                    Bem-vindo ao chat! Respeite as regras.
-                </div>
-            </div>
-        </div>
-
-        <div class="sidebar-footer">
-            <div class="chat-input-wrapper">
-                <span class="action-icon" title="Emojis" onclick="toggleEmoji()">😀</span>
-                <span class="action-icon" title="GIFs (Kiply)" onclick="toggleKiply()">GIF</span>
-                <input type="text" id="chat-input" class="chat-input" placeholder="Digite uma mensagem...">
-            </div>
-        </div>
-
-        <!-- KIPLY GIF PICKER POPUP -->
-        <div class="kiply-picker" id="kiply-picker">
-            <input type="text" id="kiply-search" placeholder="Pesquisar GIFs no Kiply..." oninput="searchKiply(this.value)">
-            <div class="kiply-results" id="kiply-results">
-                <p style="font-size: 12px; color: gray; text-align: center; grid-column: span 2;">Digite para buscar...</p>
-            </div>
-        </div>
+    <!-- POPOVER EMOJI -->
+    <div class="popover" id="emoji-popover">
+      <emoji-picker id="emoji-picker-el"></emoji-picker>
+      <div class="emoji-fallback" id="emoji-fallback"></div>
     </div>
+  </div>
+</div>
 
-    <script>
-        /* ==========================================
-           1. GERENCIAMENTO DE ESTADO E IDENTIDADE
-           ========================================== */
-        let sessionToken = localStorage.getItem("aoh2_session_token");
-        if (!sessionToken) {
-            sessionToken = "USR-" + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem("aoh2_session_token", sessionToken);
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+<script>
+/* ==========================================================
+   1. GERENCIAMENTO DE ESTADO E IDENTIDADE
+   ========================================================== */
+let sessionToken = localStorage.getItem("aoh2_session_token");
+if (!sessionToken) {
+    sessionToken = "USR-" + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem("aoh2_session_token", sessionToken);
+}
+
+let myNick = localStorage.getItem("aoh2_nickname") || "";
+let myPlayerId = null;
+let myCivName = null;   // nome da nação assumida, usado para estilizar minhas próprias mensagens
+let isHost = false;
+let lastLobbyPlayers = []; // cache do último LOBBY_LIST recebido, pra render + filtro
+
+const loginModal = document.getElementById("login-modal");
+const nickInput = document.getElementById("nickname-input");
+const statusText = document.getElementById("status-text");
+const statusDot = document.getElementById("status-dot");
+
+if (myNick) nickInput.value = myNick;
+nickInput.addEventListener("keypress", e => { if (e.key === "Enter") joinServer(); });
+
+function avatarFor(seed) {
+    return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed || "AoH2")}&colors=blue,red,green`;
+}
+
+function joinServer() {
+    const val = nickInput.value.trim();
+    if (val.length < 3) {
+        pushToast("O nickname precisa ter ao menos 3 caracteres.", "warn");
+        return;
+    }
+    myNick = val;
+    localStorage.setItem("aoh2_nickname", myNick);
+
+    document.getElementById("my-avatar").src = avatarFor(myNick);
+    document.getElementById("my-player-name").innerText = myNick;
+
+    loginModal.classList.add("hidden");
+    initWebSocket();
+}
+
+/* ==========================================================
+   2. TABS, SIDEBAR E TOASTS
+   ========================================================== */
+function switchTab(tabName) {
+    document.getElementById("tab-lobby").classList.toggle("active", tabName === "lobby");
+    document.getElementById("tab-chat").classList.toggle("active", tabName === "chat");
+    document.getElementById("view-lobby").classList.toggle("hidden", tabName !== "lobby");
+    document.getElementById("view-chat").classList.toggle("hidden", tabName !== "chat");
+}
+
+function toggleSidebar() {
+    document.getElementById("right-sidebar").classList.toggle("open");
+}
+
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => pushToast("Não foi possível abrir a tela cheia.", "error"));
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+function pushToast(text, kind) {
+    const container = document.getElementById("toast-container");
+    const el = document.createElement("div");
+    el.className = "toast" + (kind ? " " + kind : "");
+    el.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span>${text}</span>`;
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(() => el.remove(), 300); }, 3200);
+}
+
+function copyInviteLink() {
+    const url = window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(
+            () => pushToast("Link de convite copiado!"),
+            () => pushToast("Não foi possível copiar o link.", "error")
+        );
+    } else {
+        pushToast("Copie o link na barra de endereço do navegador.", "warn");
+    }
+}
+
+function setStatus(text, colorClass) {
+    statusText.innerText = text;
+    statusDot.className = "status-dot" + (colorClass ? " dot-" + colorClass : "");
+}
+
+/* ==========================================================
+   3. WEBSOCKET E LÓGICA DO JOGO
+   (Protocolo idêntico ao consumido pelo servidor Java: NÃO
+   alterar os prefixos das mensagens abaixo.)
+   ========================================================== */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+let socket;
+let lobbyInterval;
+let lastObjectURL = null;
+let reconnectAttempts = 0;
+
+function initWebSocket() {
+    setStatus("Conectando...", "");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const serverParam = urlParams.get('server');
+    let wsUrl = serverParam ? "wss://" + serverParam.replace(/^(ws|wss|http|https):\/\//, "").replace(/\/$/, "")
+                            : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.hostname + (window.location.protocol === 'https:' ? '' : ':8080');
+
+    socket = new WebSocket(wsUrl);
+    socket.binaryType = 'blob';
+
+    socket.onopen = function() {
+        reconnectAttempts = 0;
+        setStatus("Entrando no Lobby...", "green");
+        socket.send(`AUTH:${sessionToken}:${myNick}`);
+
+        clearInterval(lobbyInterval);
+        // Mantemos o polling do lobby ativo mesmo após restaurar a sessão,
+        // assim a lista de nações fica sempre atualizada pra todo mundo.
+        lobbyInterval = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) socket.send("GET_LOBBY");
+        }, 2500);
+    };
+
+    socket.onclose = function() {
+        setStatus("Conexão perdida — reconectando...", "red");
+        clearInterval(lobbyInterval);
+        reconnectAttempts++;
+        if (reconnectAttempts > 1) pushToast("Conexão perdida. Tentando reconectar...", "error");
+        setTimeout(initWebSocket, 3000);
+    };
+
+    socket.onmessage = function(event) {
+        if (typeof event.data === "string") {
+            handleTextProtocol(event.data);
+            return;
         }
 
-        let myNick = localStorage.getItem("aoh2_nickname") || "";
-        let myPlayerId = null;
-        let isHost = false; // Será true se o Java avisar que somos host
-
-        const loginModal = document.getElementById("login-modal");
-        const nickInput = document.getElementById("nickname-input");
-        const statusPill = document.getElementById("status-pill");
-
-        // Se já tem nick, preenche o campo. O usuário DEVE clicar em entrar.
-        if (myNick) nickInput.value = myNick;
-
-        function joinServer() {
-            const val = nickInput.value.trim();
-            if (val.length < 3) {
-                alert("O Nick deve ter pelo menos 3 caracteres.");
-                return;
-            }
-            myNick = val;
-            localStorage.setItem("aoh2_nickname", myNick);
-            
-            // Define o Avatar Fodão via DiceBear (Estilo Bottts)
-            const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(myNick)}&colors=blue,red,green`;
-            document.getElementById("my-avatar").src = avatarUrl;
-            document.getElementById("my-player-name").innerText = myNick;
-
-            loginModal.classList.add("hidden");
-            initWebSocket(); // Só conecta no WS DEPOIS do login!
+        // Placeholder: preparado para receber ÁUDIO do LibGDX (ArrayBuffer).
+        // Quando o Java enviar som como ArrayBuffer, tratamos aqui:
+        if (event.data instanceof ArrayBuffer) {
+            // handleWebAudio(event.data);
+            return;
         }
 
-        /* ==========================================
-           2. TABS E UI RESPONSIVO
-           ========================================== */
-        function switchTab(tabName) {
-            document.getElementById("tab-lobby").classList.remove("active");
-            document.getElementById("tab-chat").classList.remove("active");
-            document.getElementById("view-lobby").classList.add("hidden");
-            document.getElementById("view-chat").classList.add("hidden");
-            
-            document.getElementById(`tab-${tabName}`).classList.add("active");
-            document.getElementById(`view-${tabName}`).classList.remove("hidden");
-        }
-
-        function toggleSidebar() {
-            document.getElementById("right-sidebar").classList.toggle("open");
-        }
-
-        function toggleFullScreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Erro ao tentar tela cheia: ${err.message}`);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        }
-
-        function setStatus(text, colorClass) {
-            statusPill.innerText = text;
-            if(colorClass === "green") statusPill.style.background = "rgba(46, 204, 113, 0.9)";
-            else if(colorClass === "yellow") statusPill.style.background = "rgba(241, 196, 15, 0.9)";
-            else if(colorClass === "red") statusPill.style.background = "rgba(231, 76, 60, 0.9)";
-            else statusPill.style.background = "rgba(0, 0, 0, 0.7)";
-        }
-
-        /* ==========================================
-           3. WEBSOCKET E LÓGICA DO JOGO
-           ========================================== */
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d', { alpha: false }); // Otimização de render
-        let socket;
-        let lobbyInterval;
-        let lastObjectURL = null;
-
-        function initWebSocket() {
-            setStatus("⏳ Conectando...", "");
-            
-            const urlParams = new URLSearchParams(window.location.search);
-            const serverParam = urlParams.get('server');
-            let wsUrl = serverParam ? "wss://" + serverParam.replace(/^(ws|wss|http|https):\/\//, "").replace(/\/$/, "") 
-                                    : (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.hostname + (window.location.protocol === 'https:' ? '' : ':8080');
-
-            socket = new WebSocket(wsUrl);
-            socket.binaryType = 'blob';
-
-            socket.onopen = function() {
-                setStatus("🟢 Entrando no Lobby...", "green");
-                // Envia credenciais completas (Token + Nick)
-                socket.send(`AUTH:${sessionToken}:${myNick}`);
-
-                lobbyInterval = setInterval(() => {
-                    if(socket.readyState === WebSocket.OPEN) socket.send("GET_LOBBY");
-                }, 2000);
+        if (event.data instanceof Blob) {
+            const img = new Image();
+            img.onload = function() {
+                if (canvas.width !== img.width || canvas.height !== img.height) {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+                ctx.drawImage(img, 0, 0);
+                if (lastObjectURL) URL.revokeObjectURL(lastObjectURL);
+                lastObjectURL = img.src;
             };
+            img.src = URL.createObjectURL(event.data);
+        }
+    };
+}
 
-            socket.onclose = function() {
-                setStatus("🔴 Conexão Perdida", "red");
-                clearInterval(lobbyInterval);
-                setTimeout(initWebSocket, 3000); // Tenta reconectar auto
+function handleTextProtocol(msg) {
+    if (msg.startsWith("LOBBY_LIST:")) {
+        buildLobby(msg.substring(11));
+    }
+    else if (msg.startsWith("RESTORE_SESSION:")) {
+        const restoredId = parseInt(msg.split(":")[1]);
+        myPlayerId = restoredId;
+        setStatus("Sessão restaurada", "green");
+        switchTab('chat');
+    }
+    else if (msg.startsWith("IS_HOST:true")) {
+        isHost = true;
+        document.getElementById("btn-host-panel").classList.add("visible");
+        pushToast("Você é o Host desta partida.");
+    }
+    else if (msg.startsWith("CHAT_MSG:")) {
+        // FORMATO REAL DO SERVIDOR: CHAT_MSG:<remetente>:<conteúdo>
+        // (o conteúdo pode conter ":" — por isso cortamos apenas no
+        // primeiro ":" após o remetente, e não usamos split(":") solto)
+        const rest = msg.substring(9);
+        const sep = rest.indexOf(":");
+        if (sep === -1) return;
+        const sender = rest.substring(0, sep);
+        const text = rest.substring(sep + 1);
+        appendChatMessage(sender, text);
+    }
+    else if (msg.startsWith("TURN:")) {
+        const parts = msg.split(":");
+        const currentTurnId = parseInt(parts[1]);
+        const isInputPhase = (parts[2] === "true");
+        document.getElementById("turn-text").innerText = isInputPhase ? "Fase de ordens" : "Processando";
+
+        if (myPlayerId === null) return;
+
+        if (!isInputPhase) setStatus("Processando IA...", "yellow");
+        else if (currentTurnId === myPlayerId) setStatus("Sua vez de jogar!", "green");
+        else setStatus("Aguardando outro comandante", "red");
+    }
+}
+
+/* ==========================================================
+   4. LOBBY E NAÇÕES
+   ========================================================== */
+const CIV_MEDAL_COLORS = ["#b5432f","#4c8d63","#3d6ea5","#c9a24b","#7a5ea8","#a5573d","#3f9c9c","#a54f8e"];
+function medalColorFor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return CIV_MEDAL_COLORS[h % CIV_MEDAL_COLORS.length];
+}
+
+function buildLobby(data) {
+    lastLobbyPlayers = [];
+    if (data && data.trim() !== "") {
+        data.split(";").forEach(p => {
+            const parts = p.split("=");
+            if (parts.length < 2) return;
+            lastLobbyPlayers.push({ id: parts[0], name: parts[1] });
+        });
+    }
+    document.getElementById("nations-count").innerText = lastLobbyPlayers.length;
+    document.getElementById("lobby-tab-badge").innerText = lastLobbyPlayers.length;
+    renderLobby();
+}
+
+function renderLobby() {
+    const container = document.getElementById('civButtons');
+    const filterEl = document.getElementById('lobby-filter');
+    const filter = filterEl ? filterEl.value.trim().toLowerCase() : "";
+    container.innerHTML = "";
+
+    if (lastLobbyPlayers.length === 0) {
+        container.innerHTML = `
+            <div class="lobby-empty">
+                <svg class="icon compass-seal" viewBox="0 0 24 24" style="width:34px;height:34px;"><circle cx="12" cy="12" r="9"/><path d="m16 8-4 4-4 4 4-4 4-4Z"/></svg>
+                <p>Aguardando o Host liberar as nações para seleção...</p>
+            </div>`;
+        return;
+    }
+
+    const filtered = lastLobbyPlayers.filter(p => p.name.toLowerCase().includes(filter));
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="lobby-empty"><p>Nenhuma nação encontrada para "${filter}".</p></div>`;
+        return;
+    }
+
+    filtered.forEach(p => {
+        const isMine = myPlayerId !== null && parseInt(p.id) === myPlayerId;
+        const div = document.createElement("div");
+        div.className = "lobby-item" + (isMine ? " mine" : "");
+        const initials = p.name.replace(/[^A-Za-zÀ-ÿ ]/g, "").split(" ").filter(Boolean).slice(0,2).map(w => w[0]).join("").toUpperCase() || "?";
+        div.innerHTML = `
+            <div class="civ-id">
+                <div class="civ-medal" style="background:${medalColorFor(p.name)};">${initials}</div>
+                <span class="civ-name">${p.name}</span>
+            </div>
+            <button class="civ-claim-btn">${isMine ? "Sua nação" : "Selecionar"}</button>
+        `;
+        div.onclick = function() {
+            myPlayerId = parseInt(p.id);
+            myCivName = p.name;
+            document.getElementById("my-player-civ").innerText = p.name;
+            socket.send(`CLAIM:${p.id}:${sessionToken}`);
+            switchTab('chat');
+            socket.send("GET_LOBBY");
+            pushToast(`Você assumiu o comando de ${p.name}.`);
+        };
+        container.appendChild(div);
+    });
+}
+
+/* ==========================================================
+   5. CHAT, GIFS (KIPLY) E EMOJIS
+   ========================================================== */
+const chatInput = document.getElementById('chat-input');
+const chatBox = document.getElementById('chat-box');
+const kiplyPicker = document.getElementById('kiply-picker');
+const emojiPopover = document.getElementById('emoji-popover');
+
+chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && this.value.trim() !== '') submitChatInput();
+});
+
+function submitChatInput() {
+    const val = chatInput.value.trim();
+    if (val === '') return;
+    sendChat(val);
+    chatInput.value = '';
+}
+
+function sendChat(content) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        // O servidor Java define o remetente a partir da sessão/nação —
+        // então enviamos SOMENTE o conteúdo, exatamente como ele espera.
+        socket.send(`CHAT:${content}`);
+    } else {
+        pushToast("Você está desconectado do servidor.", "error");
+    }
+}
+
+function formatTime() {
+    const d = new Date();
+    return d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0');
+}
+
+function appendChatMessage(sender, text) {
+    const isOwn = myCivName !== null && sender === myCivName;
+    const row = document.createElement("div");
+    row.className = "chat-row" + (isOwn ? " own" : "");
+
+    let contentHtml;
+    if (text.startsWith("KIPLY_GIF|")) {
+        const gifUrl = text.replace("KIPLY_GIF|", "");
+        contentHtml = `<img src="${gifUrl}" class="gif-img" alt="GIF">`;
+    } else {
+        const safe = document.createElement("div");
+        safe.innerText = text;
+        contentHtml = safe.innerHTML;
+    }
+
+    row.innerHTML = `
+        <div class="avatar sm"><img src="${avatarFor(sender)}" alt=""></div>
+        <div class="chat-bubble">
+            <div class="chat-meta"><span class="chat-sender">${sender}</span><span class="chat-time">${formatTime()}</span></div>
+            ${contentHtml}
+        </div>
+    `;
+    chatBox.appendChild(row);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* --- GIFs via Kiply (com fallback Tenor) --- */
+function toggleKiply() {
+    emojiPopover.classList.remove('open');
+    const opening = !kiplyPicker.classList.contains('open');
+    kiplyPicker.classList.toggle('open');
+    if (opening && !kiplyPicker.dataset.loaded) {
+        kiplyPicker.dataset.loaded = "1";
+        loadTrendingGifs();
+    }
+}
+
+let kiplyTimeout;
+function searchKiply(query) {
+    clearTimeout(kiplyTimeout);
+    kiplyTimeout = setTimeout(async () => {
+        if (query.trim() === "") { loadTrendingGifs(); return; }
+        await runGifQuery(`https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=LIVDSRZULELA&limit=10`);
+    }, 450);
+}
+
+function loadTrendingGifs() {
+    runGifQuery(`https://g.tenor.com/v1/trending?key=LIVDSRZULELA&limit=10`);
+}
+
+async function runGifQuery(url) {
+    const results = document.getElementById('kiply-results');
+    results.innerHTML = Array(6).fill('<div class="kiply-skel"></div>').join("");
+    try {
+        const res = await fetch(url);
+        const json = await res.json();
+        results.innerHTML = "";
+        if (!json.results || json.results.length === 0) {
+            results.innerHTML = `<div class="kiply-note">Nenhum GIF encontrado.</div>`;
+            return;
+        }
+        json.results.forEach(gif => {
+            const img = document.createElement("img");
+            img.loading = "lazy";
+            img.src = gif.media[0].tinygif.url;
+            img.onclick = () => {
+                sendChat(`KIPLY_GIF|${gif.media[0].gif.url}`);
+                kiplyPicker.classList.remove('open');
             };
-
-            socket.onmessage = function(event) {
-                // Mensagens de Texto (JSON/Strings)
-                if (typeof event.data === "string") {
-                    handleTextProtocol(event.data);
-                    return;
-                }
-
-                // Placeholder: Preparação para receber ÁUDIO do LibGDX (ArrayBuffer)
-                // Se no Java mandarmos o som como ArrayBuffer, tratamos aqui:
-                if (event.data instanceof ArrayBuffer) {
-                    // handleWebAudio(event.data);
-                    return;
-                }
-
-                // Renderização de Vídeo (Blob JPEG)
-                if (event.data instanceof Blob) {
-                    const img = new Image();
-                    img.onload = function() {
-                        if(canvas.width !== img.width || canvas.height !== img.height) {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                        }
-                        ctx.drawImage(img, 0, 0);
-                        if (lastObjectURL) URL.revokeObjectURL(lastObjectURL);
-                        lastObjectURL = img.src;
-                    };
-                    img.src = URL.createObjectURL(event.data);
-                }
-            };
-        }
-
-        function handleTextProtocol(msg) {
-            if (msg.startsWith("LOBBY_LIST:")) {
-                buildLobby(msg.substring(11));
-            }
-            else if (msg.startsWith("RESTORE_SESSION:")) {
-                const restoredId = parseInt(msg.split(":")[1]);
-                myPlayerId = restoredId;
-                clearInterval(lobbyInterval);
-                setStatus("🎮 Sessão Restaurada!", "green");
-                switchTab('chat'); // Muda pro chat automaticamente
-            }
-            else if (msg.startsWith("IS_HOST:true")) {
-                isHost = true;
-                document.getElementById("btn-host-panel").classList.add("visible");
-                setStatus("👑 Você é o Host", "green");
-            }
-            else if (msg.startsWith("CHAT_MSG:")) {
-                // FORMATO: CHAT_MSG:AvatarUrl:Remetente:MensagemTexto(ou Imagem)
-                const parts = msg.split(":");
-                if (parts.length >= 4) {
-                    const avatar = parts[1];
-                    const sender = parts[2];
-                    const text = parts.slice(3).join(":"); // Reagrupa caso tenha ':' no texto/url
-                    appendChatMessage(avatar, sender, text);
-                }
-            }
-            else if (msg.startsWith("TURN:")) {
-                const parts = msg.split(":");
-                const currentTurnId = parseInt(parts[1]);
-                const isInputPhase = (parts[2] === "true");
-                
-                if (myPlayerId === null) return;
-                
-                if (!isInputPhase) setStatus("⏳ Processando IA...", "yellow");
-                else if (currentTurnId === myPlayerId) setStatus("🎮 Sua Vez!", "green");
-                else setStatus("⛔ Vez do outro jogador", "red");
-            }
-        }
-
-        /* ==========================================
-           4. LOBBY E PAÍSES
-           ========================================== */
-        function buildLobby(data) {
-            if(!data || data.trim() === "") return;
-            const container = document.getElementById('civButtons');
-            container.innerHTML = ""; 
-            
-            const players = data.split(";");
-            players.forEach(p => {
-                const parts = p.split("=");
-                if (parts.length < 2) return;
-                const pId = parts[0];
-                const pName = parts[1];
-                
-                const div = document.createElement("div");
-                div.className = "lobby-item";
-                div.innerHTML = `
-                    <span style="font-weight:bold;">${pName}</span>
-                    <button style="padding: 5px 15px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer;">Selecionar</button>
-                `;
-                
-                div.onclick = function() {
-                    myPlayerId = parseInt(pId);
-                    document.getElementById("my-player-civ").innerText = pName;
-                    socket.send(`CLAIM:${pId}:${sessionToken}`);
-                    switchTab('chat'); // Força a ida pro chat após escolher
-                    socket.send("GET_LOBBY"); 
-                };
-                container.appendChild(div);
-            });
-        }
-
-        /* ==========================================
-           5. SISTEMA DE CHAT, KIPLY E EMOJIS
-           ========================================== */
-        const chatInput = document.getElementById('chat-input');
-        const chatBox = document.getElementById('chat-box');
-        const kiplyPicker = document.getElementById('kiply-picker');
-
-        chatInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && this.value.trim() !== '') {
-                sendChat(this.value.trim());
-                this.value = '';
-            }
+            results.appendChild(img);
         });
+    } catch (e) {
+        results.innerHTML = `<div class="kiply-note">Erro ao buscar GIFs. Tente novamente.</div>`;
+    }
+}
 
-        function sendChat(content) {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                // Manda AvatarUrl:Nick:Conteúdo
-                const avatar = document.getElementById("my-avatar").src;
-                // Encode simplificado pra não bugar o Split no Java
-                socket.send(`CHAT:${encodeURIComponent(avatar)}:${myNick}:${content}`);
-            }
-        }
+/* --- Emojis (emoji-picker-element, com fallback local) --- */
+function toggleEmoji() {
+    kiplyPicker.classList.remove('open');
+    emojiPopover.classList.toggle('open');
+}
 
-        function appendChatMessage(avatarUrl, sender, text) {
-            const div = document.createElement("div");
-            div.className = "chat-msg";
-            
-            // Decodifica a URL do avatar enviada
-            const decAvatar = decodeURIComponent(avatarUrl);
-            
-            // Verifica se é uma mensagem normal ou GIF do Kiply
-            let contentHtml = text;
-            if (text.startsWith("KIPLY_GIF|")) {
-                const gifUrl = text.replace("KIPLY_GIF|", "");
-                contentHtml = `<img src="${gifUrl}" class="gif-img" alt="GIF">`;
-            }
-
-            div.innerHTML = `
-                <div class="sender">
-                    <img src="${decAvatar}" style="width:16px; height:16px; border-radius:50%;"> 
-                    ${sender}
-                </div>
-                ${contentHtml}
-            `;
-            chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        // --- KIPLY GIF API (Simulação/Integração) ---
-        function toggleKiply() { kiplyPicker.classList.toggle('open'); }
-        function toggleEmoji() { chatInput.value += "😀"; chatInput.focus(); } // Placeholder simples
-        
-        let kiplyTimeout;
-        function searchKiply(query) {
-            clearTimeout(kiplyTimeout);
-            kiplyTimeout = setTimeout(async () => {
-                const results = document.getElementById('kiply-results');
-                if(query.trim() === "") { results.innerHTML = "<p>Digite para buscar...</p>"; return; }
-                
-                results.innerHTML = "<p>Buscando...</p>";
-                
-                // NOTA: Implementação Genérica Padrão do Kiply (ou Tenor caso Kiply falhe).
-                // API Key Pública de teste do Tenor usada como Fallback educativo, substitua pela do Kiply.
-                const apiKey = "LIVDSRZULELA"; // Fallback Tenor caso Kiply exija auth complexa
-                const url = `https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=${apiKey}&limit=8`;
-                
-                try {
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    results.innerHTML = "";
-                    json.results.forEach(gif => {
-                        const img = document.createElement("img");
-                        img.src = gif.media[0].tinygif.url; // Preview leve
-                        img.onclick = () => {
-                            sendChat(`KIPLY_GIF|${gif.media[0].gif.url}`); // Envia a tag especial
-                            kiplyPicker.classList.remove('open');
-                        };
-                        results.appendChild(img);
-                    });
-                } catch(e) {
-                    results.innerHTML = "<p>Erro ao buscar GIFs.</p>";
-                }
-            }, 500); // Debounce
-        }
-
-        /* ==========================================
-           6. CONTROLES: MOUSE E MOBILE (TOUCH/ZOOM)
-           ========================================== */
-        let isDragging = false;
-        let initialPinchDistance = null;
-
-        function getCanvasPos(clientX, clientY) {
-            const rect = canvas.getBoundingClientRect();
-            if(clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
-            return {
-                x: (clientX - rect.left) / rect.width,
-                y: (clientY - rect.top) / rect.height
-            };
-        }
-
-        function sendEvent(action, e) {
-            if (!socket || socket.readyState !== WebSocket.OPEN) return;
-            const pos = getCanvasPos(e.clientX, e.clientY);
-            if(pos) socket.send(`${action}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
-        }
-
-        // MOUSE
-        canvas.addEventListener('mousedown', e => { isDragging = true; sendEvent("DOWN", e); });
-        canvas.addEventListener('mouseup', e => { isDragging = false; sendEvent("UP", e); });
-        canvas.addEventListener('mousemove', e => { sendEvent(isDragging ? "DRAG" : "HOVER", e); });
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
-        
-        // RODA DO MOUSE (Zoom Desktop)
-        canvas.addEventListener('wheel', e => {
-            e.preventDefault();
-            if (!socket || socket.readyState !== WebSocket.OPEN) return;
-            const amount = e.deltaY > 0 ? 1 : -1;
-            socket.send(`WHEEL:${amount}`); // Java precisa interpretar isso em AoCGame.scrolled(amount)
+const COMMON_EMOJI_FALLBACK = "😀 😂 😅 😊 😍 😎 🤔 😴 😢 😡 👍 👎 👏 🙌 🙏 💪 🔥 ⚔️ 🛡️ 👑 🏰 🗺️ ⚓ 🚩 🎉 ❤️ 💀 🤝 🕊️ ⭐".split(" ");
+setTimeout(() => {
+    if (!customElements.get('emoji-picker')) {
+        document.getElementById('emoji-picker-el').style.display = 'none';
+        const fb = document.getElementById('emoji-fallback');
+        fb.style.display = 'grid';
+        COMMON_EMOJI_FALLBACK.forEach(e => {
+            const b = document.createElement('button');
+            b.innerText = e;
+            b.onclick = () => { chatInput.value += e; chatInput.focus(); };
+            fb.appendChild(b);
         });
-
-        // TOUCH (Mobile e Tablets)
-        canvas.addEventListener('touchstart', e => {
-            if (e.touches.length === 1) {
-                isDragging = true;
-                sendEvent("DOWN", e.touches[0]);
-            } else if (e.touches.length === 2) {
-                // Inicia o Pinch-to-zoom
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-            }
-        }, {passive: false});
-
-        canvas.addEventListener('touchmove', e => {
-            e.preventDefault(); // Evita scroll da página
-            if (e.touches.length === 1 && isDragging) {
-                sendEvent("DRAG", e.touches[0]);
-            } else if (e.touches.length === 2 && initialPinchDistance) {
-                const currentDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                
-                // Diferença considerável para dar trigger no Zoom
-                if (Math.abs(currentDistance - initialPinchDistance) > 30) {
-                    const amount = currentDistance > initialPinchDistance ? -1 : 1; // Expande = Zoom in (-1), Pinça = Zoom out (1)
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(`WHEEL:${amount}`);
-                    }
-                    initialPinchDistance = currentDistance; // Reseta pro próximo "tick" de zoom
-                }
-            }
-        }, {passive: false});
-
-        canvas.addEventListener('touchend', e => {
-            if (e.touches.length === 0) {
-                isDragging = false;
-                initialPinchDistance = null;
-                sendEvent("UP", e.changedTouches[0]);
-            }
+    } else {
+        document.getElementById('emoji-picker-el').addEventListener('emoji-click', ev => {
+            chatInput.value += ev.detail.unicode;
+            chatInput.focus();
         });
+    }
+}, 2500);
 
-        // TECLADO DO JOGO (Ignora se tiver digitando no Chat)
-        window.addEventListener('keydown', e => {
-            if (document.activeElement.tagName === "INPUT") return;
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                if (e.key === "Backspace") socket.send("KEY_TYPED:\b");
-                else if (e.key === "Enter") socket.send("KEY_TYPED:\r");
-            }
-        });
+/* ==========================================================
+   6. CONTROLES: MOUSE E MOBILE (TOUCH/ZOOM)
+   ========================================================== */
+let isDragging = false;
+let initialPinchDistance = null;
 
-        window.addEventListener('keypress', e => {
-            if (document.activeElement.tagName === "INPUT") return;
-            if(e.key === " ") e.preventDefault(); 
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send("KEY_TYPED:" + e.key);
-            }
-        });
+function getCanvasPos(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+    return {
+        x: (clientX - rect.left) / rect.width,
+        y: (clientY - rect.top) / rect.height
+    };
+}
 
-        /* ==========================================
-           7. PAINEL DO HOST (Implementações Futuras)
-           ========================================== */
-        const hostModal = document.getElementById("host-modal");
-        function openHostPanel() { hostModal.classList.remove("hidden"); }
-        function closeHostPanel() { hostModal.classList.add("hidden"); }
-        
-        function forceOverride() {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send("HOST_CMD:OVERRIDE");
-                alert("Comando de Controle Forçado enviado ao Java!");
-                closeHostPanel();
-            }
+function sendEvent(action, e) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    if (pos) socket.send(`${action}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+}
+
+canvas.addEventListener('mousedown', e => { isDragging = true; sendEvent("DOWN", e); });
+canvas.addEventListener('mouseup', e => { isDragging = false; sendEvent("UP", e); });
+canvas.addEventListener('mousemove', e => { sendEvent(isDragging ? "DRAG" : "HOVER", e); });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const amount = e.deltaY > 0 ? 1 : -1;
+    socket.send(`WHEEL:${amount}`); // Java precisa interpretar isso em AoCGame.scrolled(amount)
+}, { passive: false });
+
+canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+        isDragging = true;
+        sendEvent("DOWN", e.touches[0]);
+    } else if (e.touches.length === 2) {
+        initialPinchDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+        sendEvent("DRAG", e.touches[0]);
+    } else if (e.touches.length === 2 && initialPinchDistance) {
+        const currentDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (Math.abs(currentDistance - initialPinchDistance) > 30) {
+            const amount = currentDistance > initialPinchDistance ? -1 : 1;
+            if (socket && socket.readyState === WebSocket.OPEN) socket.send(`WHEEL:${amount}`);
+            initialPinchDistance = currentDistance;
         }
-    </script>
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+        isDragging = false;
+        initialPinchDistance = null;
+        sendEvent("UP", e.changedTouches[0]);
+    }
+});
+
+window.addEventListener('keydown', e => {
+    if (document.activeElement.tagName === "INPUT") return;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        if (e.key === "Backspace") socket.send("KEY_TYPED:\b");
+        else if (e.key === "Enter") socket.send("KEY_TYPED:\r");
+    }
+});
+
+window.addEventListener('keypress', e => {
+    if (document.activeElement.tagName === "INPUT") return;
+    if (e.key === " ") e.preventDefault();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send("KEY_TYPED:" + e.key);
+    }
+});
+
+/* ==========================================================
+   7. PAINEL DO HOST
+   ========================================================== */
+const hostModal = document.getElementById("host-modal");
+function openHostPanel() { hostModal.classList.remove("hidden"); }
+function closeHostPanel() { hostModal.classList.add("hidden"); }
+
+function forceOverride() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send("HOST_CMD:OVERRIDE");
+        pushToast("Comando de controle forçado enviado.");
+        closeHostPanel();
+    }
+}
+
+/* Fecha popovers ao clicar fora deles */
+document.addEventListener('click', e => {
+    if (!kiplyPicker.contains(e.target) && e.target.closest('[onclick="toggleKiply()"]') === null) kiplyPicker.classList.remove('open');
+    if (!emojiPopover.contains(e.target) && e.target.closest('[onclick="toggleEmoji()"]') === null) emojiPopover.classList.remove('open');
+}, true);
+</script>
 </body>
 </html>
