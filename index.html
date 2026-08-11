@@ -414,6 +414,10 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
         <div class="btn-icon" title="Áudio (em breve)" style="cursor:default; opacity:.55;">
           <svg class="icon" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
         </div>
+         <div class="btn-icon" id="btn-input-mode" title="Modo: Selecionar (Toque = Clique Esquerdo)" onclick="toggleInputMode()">
+          <svg class="icon" id="icon-select" viewBox="0 0 24 24"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+          <svg class="icon hidden" id="icon-move" viewBox="0 0 24 24" style="color:var(--crimson-bright);"><path d="M15 2 3 6l4 4-4 4 12 4v-6l4-2-4-2V2Z"/></svg>
+        </div>
         <div class="btn-icon" title="Tela cheia" onclick="toggleFullScreen()">
           <svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
         </div>
@@ -1162,6 +1166,17 @@ setTimeout(() => {
    ========================================================== */
 let isDragging = false;
 let initialPinchDistance = null;
+let lastPinchTime = 0;
+let currentInputButton = 0; // 0 = Selecionar (Esquerdo), 1 = Mover (Direito)
+
+function toggleInputMode() {
+    currentInputButton = currentInputButton === 0 ? 1 : 0;
+    document.getElementById('icon-select').classList.toggle('hidden', currentInputButton === 1);
+    document.getElementById('icon-move').classList.toggle('hidden', currentInputButton === 0);
+    const title = currentInputButton === 0 ? "Modo Atual: Selecionar (Clique Esquerdo)" : "Modo Atual: Movimentar Tropas (Clique Direito)";
+    document.getElementById('btn-input-mode').title = title;
+    pushToast(title);
+}
 
 function getCanvasPos(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -1175,7 +1190,20 @@ function getCanvasPos(clientX, clientY) {
 function sendEvent(action, e) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const pos = getCanvasPos(e.clientX, e.clientY);
-    if (pos) socket.send(`${action}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+    if (pos) {
+        let payload = `${action}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`;
+        
+        // Se for clique, envia qual botão foi usado
+        if (action === "DOWN" || action === "UP") {
+            let btn = currentInputButton; // Usa o modo Mobile por padrão
+            if (e.button !== undefined) {
+                // Se for mouse físico de verdade, respeita o clique dele (0=Esquerdo, 2=Direito)
+                btn = e.button === 2 ? 1 : (e.button === 0 ? 0 : currentInputButton);
+            }
+            payload += `:${btn}`;
+        }
+        socket.send(payload);
+    }
 }
 
 canvas.addEventListener('mousedown', e => { isDragging = true; sendEvent("DOWN", e); });
@@ -1187,7 +1215,11 @@ canvas.addEventListener('wheel', e => {
     e.preventDefault();
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const amount = e.deltaY > 0 ? 1 : -1;
-    socket.send(`WHEEL:${amount}`); // Java precisa interpretar isso em AoCGame.scrolled(amount)
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    if (pos) {
+        // Envia as coordenadas junto com o zoom para o jogo focar no mouse!
+        socket.send(`WHEEL:${amount}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+    }
 }, { passive: false });
 
 canvas.addEventListener('touchstart', e => {
@@ -1212,9 +1244,20 @@ canvas.addEventListener('touchmove', e => {
             e.touches[0].clientY - e.touches[1].clientY
         );
         if (Math.abs(currentDistance - initialPinchDistance) > 30) {
-            const amount = currentDistance > initialPinchDistance ? -1 : 1;
-            if (socket && socket.readyState === WebSocket.OPEN) socket.send(`WHEEL:${amount}`);
-            initialPinchDistance = currentDistance;
+            const now = Date.now();
+            // Freio do Mobile: O JS no celular dispara dezenas de eventos num segundo. 
+            // O Java não aguenta calcular zoom na mesma velocidade. Limitamos a 1 zoom a cada 180ms.
+            if (now - lastPinchTime > 180) { 
+                const amount = currentDistance > initialPinchDistance ? -1 : 1;
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const pos = getCanvasPos(midX, midY);
+                if (pos && socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(`WHEEL:${amount}:${pos.x.toFixed(4)},${pos.y.toFixed(4)}`);
+                }
+                initialPinchDistance = currentDistance;
+                lastPinchTime = now;
+            }
         }
     }
 }, { passive: false });
