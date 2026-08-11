@@ -60,7 +60,7 @@ button, input{ font-family:inherit; }
 .btn-ghost:hover{ background:var(--ink-750); border-color:var(--brass-dim); }
 .btn-danger{ background:var(--crimson); color:#fff0ec; }
 .btn-danger:hover{ background:var(--crimson-bright); }
-.btn-icon{ width:38px; height:38px; padding:0; border-radius:var(--r-full); background:rgba(255,255,255,0.05); color:var(--text-1); border:1px solid var(--hairline); }
+.btn-icon{ width:38px; height:38px; padding:0; border-radius:var(--r-full); background:rgba(255,255,255,0.05); color:var(--text-1); border:1px solid var(--hairline); display:flex; align-items:center; justify-content:center; line-height:0; flex-shrink:0; }
 .btn-icon:hover{ background:rgba(255,255,255,0.1); color:var(--text-0); }
 
 /* Selo de compasso — spinner de carregamento (elemento-assinatura) */
@@ -96,6 +96,13 @@ button, input{ font-family:inherit; }
 .modal-input:focus{ border-color:var(--brass); }
 .modal-box .btn{ width:100%; padding:13px; font-size:15px; }
 .modal-note{ margin-top:16px; font-size:11.5px; color:var(--text-2); }
+.nick-suggestion{
+  display:inline-flex; align-items:center; gap:6px; background:var(--ink-950); border:1px dashed var(--hairline);
+  border-radius:var(--r-full); padding:7px 14px; font-size:12px; color:var(--text-1); cursor:pointer;
+  margin:-6px 0 16px; transition:border-color .15s ease; max-width:100%;
+}
+.nick-suggestion:hover{ border-color:var(--brass); color:var(--text-0); }
+.nick-suggestion b{ color:var(--brass-bright); font-weight:700; }
 
 #host-modal .modal-box{ width:520px; text-align:left; }
 #host-modal h2{ display:flex; align-items:center; gap:10px; }
@@ -254,7 +261,8 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
 .chat-meta{ display:flex; align-items:baseline; gap:7px; margin-bottom:3px; }
 .chat-sender{ font-weight:700; font-size:11.5px; color:var(--brass-bright); }
 .chat-row.own .chat-sender{ color:var(--emerald-bright); }
-.chat-time{ font-size:10px; color:var(--text-2); font-family:var(--f-mono); }
+.chat-time{ font-size:10px; color:var(--text-2); font-family:var(--f-mono); margin-left:auto; }
+.chat-nation{ font-size:10px; color:var(--brass-dim); background:rgba(201,162,75,0.1); border:1px solid var(--hairline); padding:1px 7px; border-radius:var(--r-full); font-weight:700; }
 .chat-bubble img.gif-img{ max-width:220px; border-radius:8px; margin-top:4px; display:block; }
 
 .sidebar-footer{ padding:14px 16px 16px; border-top:1px solid var(--hairline); position:relative; }
@@ -284,6 +292,11 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
 @keyframes shimmer{ from{ background-position:150% 0; } to{ background-position:-50% 0; } }
 .popover-brand{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
 .popover-brand span{ font-size:10.5px; font-family:var(--f-mono); color:var(--text-2); letter-spacing:1px; text-transform:uppercase; }
+.popover-gear{ cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; transition:all .15s ease; }
+.popover-gear:hover{ color:var(--brass-bright); background:rgba(255,255,255,0.06); }
+.gif-settings{ background:var(--ink-950); border:1px solid var(--hairline); border-radius:var(--r-sm); padding:8px; margin-bottom:8px; }
+.gif-settings select{ width:100%; }
+.gif-settings-note{ font-size:10.5px; color:var(--text-2); line-height:1.5; margin-top:4px; }
 
 #emoji-popover{ padding:0; overflow:hidden; }
 #emoji-popover emoji-picker{
@@ -335,6 +348,7 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
     <h2>Convocação ao Mapa</h2>
     <p>Insira seu nome de comandante para ingressar na sala de campanha.</p>
     <input type="text" id="nickname-input" class="modal-input" placeholder="Seu nickname..." maxlength="16" autocomplete="off">
+    <div id="nick-suggestion" class="nick-suggestion hidden"></div>
     <button class="btn btn-brass" onclick="joinServer()" style="width:100%;">Entrar na Campanha</button>
     <div class="modal-note">Sua sessão fica salva neste navegador — feche e volte quando quiser.</div>
   </div>
@@ -472,7 +486,20 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
 
     <!-- POPOVER GIF (Kiply) -->
     <div class="popover" id="kiply-picker">
-      <div class="popover-brand"><span>GIFs · Kiply</span></div>
+      <div class="popover-brand">
+        <span>GIFs · Kiply</span>
+        <span class="popover-gear" id="btn-gif-settings" title="Configurar chave de API" onclick="toggleGifSettings()">
+          <svg class="icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        </span>
+      </div>
+      <div class="gif-settings hidden" id="gif-settings">
+        <select id="gif-provider-select" class="popover-search" style="margin-bottom:6px;" onchange="saveGifSettings()">
+          <option value="giphy">Giphy</option>
+          <option value="tenor">Tenor (v2)</option>
+        </select>
+        <input type="text" id="gif-apikey-input" class="popover-search" placeholder="Sua chave de API (opcional)" oninput="saveGifSettings()">
+        <div class="gif-settings-note">Sem chave própria usamos uma chave pública limitada. Para GIFs sempre funcionando, crie uma chave grátis em developers.google.com/tenor ou developers.giphy.com.</div>
+      </div>
       <input type="text" id="kiply-search" class="popover-search" placeholder="Pesquisar GIFs..." oninput="searchKiply(this.value)">
       <div class="kiply-results" id="kiply-results">
         <div class="kiply-note" style="grid-column:span 2;">Carregando em alta...</div>
@@ -509,7 +536,16 @@ const nickInput = document.getElementById("nickname-input");
 const statusText = document.getElementById("status-text");
 const statusDot = document.getElementById("status-dot");
 
-if (myNick) nickInput.value = myNick;
+// O campo sempre começa vazio (placeholder "Seu nickname...") — não
+// pré-preenchemos com o nick salvo. Em vez disso, oferecemos um atalho
+// opcional pra reusar o último nick com um clique.
+nickInput.value = "";
+if (myNick) {
+    const chip = document.getElementById("nick-suggestion");
+    chip.classList.remove("hidden");
+    chip.innerHTML = `Usar novamente: <b>${myNick}</b>`;
+    chip.onclick = () => { nickInput.value = myNick; nickInput.focus(); };
+}
 nickInput.addEventListener("keypress", e => { if (e.key === "Enter") joinServer(); });
 
 function avatarFor(seed) {
@@ -670,6 +706,10 @@ function handleTextProtocol(msg) {
     }
     else if (msg.startsWith("CHAT_MSG:")) {
         // FORMATO REAL DO SERVIDOR: CHAT_MSG:<remetente>:<conteúdo>
+        // O servidor só conhece a NAÇÃO do remetente (ou "Espectador"),
+        // nunca o nick real. Por isso embutimos o nick DENTRO do próprio
+        // conteúdo ao enviar (igual ao truque do GIF: é só um link/texto
+        // que o servidor repassa sem mexer) e desembrulhamos aqui.
         // (o conteúdo pode conter ":" — por isso cortamos apenas no
         // primeiro ":" após o remetente, e não usamos split(":") solto)
         const rest = msg.substring(9);
@@ -784,12 +824,22 @@ function submitChatInput() {
 
 function sendChat(content) {
     if (socket && socket.readyState === WebSocket.OPEN) {
-        // O servidor Java define o remetente a partir da sessão/nação —
-        // então enviamos SOMENTE o conteúdo, exatamente como ele espera.
-        socket.send(`CHAT:${content}`);
+        // O servidor Java define o remetente pela nação (ou "Espectador") e
+        // apenas repassa o conteúdo sem examiná-lo — então embutimos o nick
+        // real dentro do próprio conteúdo (formato NICK|<nick>|<mensagem>),
+        // do mesmo jeito que um GIF vira KIPLY_GIF|<url>. O servidor nunca
+        // precisa entender essa tag; só o nosso HTML desembrulha ela.
+        const tag = "NICK|" + encodeURIComponent(myNick || "Anônimo") + "|";
+        socket.send(`CHAT:${tag}${content}`);
     } else {
         pushToast("Você está desconectado do servidor.", "error");
     }
+}
+
+function escapeHtml(str) {
+    const d = document.createElement("div");
+    d.innerText = str;
+    return d.innerHTML;
 }
 
 function formatTime() {
@@ -797,8 +847,22 @@ function formatTime() {
     return d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0');
 }
 
-function appendChatMessage(sender, text) {
-    const isOwn = myCivName !== null && sender === myCivName;
+function appendChatMessage(nation, rawText) {
+    // Desembrulha a tag NICK|<nick>|<mensagem>, se presente. Mensagens sem
+    // a tag (ex.: vindas de um cliente antigo) caem no nome da nação.
+    let text = rawText;
+    let nick = null;
+    if (rawText.startsWith("NICK|")) {
+        const rest = rawText.substring(5);
+        const sep = rest.indexOf("|");
+        if (sep !== -1) {
+            nick = decodeURIComponent(rest.substring(0, sep));
+            text = rest.substring(sep + 1);
+        }
+    }
+    const displayName = nick || nation;
+    const isOwn = nick !== null ? nick === myNick : (myCivName !== null && nation === myCivName);
+
     const row = document.createElement("div");
     row.className = "chat-row" + (isOwn ? " own" : "");
 
@@ -812,10 +876,12 @@ function appendChatMessage(sender, text) {
         contentHtml = safe.innerHTML;
     }
 
+    const nationBadge = (nick && nation) ? `<span class="chat-nation">${escapeHtml(nation)}</span>` : "";
+
     row.innerHTML = `
-        <div class="avatar sm"><img src="${avatarFor(sender)}" alt=""></div>
+        <div class="avatar sm"><img src="${avatarFor(displayName)}" alt=""></div>
         <div class="chat-bubble">
-            <div class="chat-meta"><span class="chat-sender">${sender}</span><span class="chat-time">${formatTime()}</span></div>
+            <div class="chat-meta"><span class="chat-sender">${escapeHtml(displayName)}</span>${nationBadge}<span class="chat-time">${formatTime()}</span></div>
             ${contentHtml}
         </div>
     `;
@@ -823,7 +889,35 @@ function appendChatMessage(sender, text) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/* --- GIFs via Kiply (com fallback Tenor) --- */
+/* --- GIFs via Kiply ---
+   NOTA: a API v1 do Tenor (g.tenor.com/v1/...) usada antes foi
+   descontinuada pelo Google — por isso os GIFs vinham vazios/nulos.
+   Trocamos pra um esquema com dois provedores (Giphy / Tenor v2),
+   chave pública de demonstração por padrão, e um botão de engrenagem
+   pra quem quiser colar a própria chave gratuita (mais estável). */
+const GIF_DEFAULT = { provider: "giphy", key: "dc6zaTOxFJmzC" };
+function getGifSettings() {
+    return {
+        provider: localStorage.getItem("aoh2_gif_provider") || GIF_DEFAULT.provider,
+        key: localStorage.getItem("aoh2_gif_key") || ""
+    };
+}
+function saveGifSettings() {
+    const provider = document.getElementById("gif-provider-select").value;
+    const key = document.getElementById("gif-apikey-input").value.trim();
+    localStorage.setItem("aoh2_gif_provider", provider);
+    if (key) localStorage.setItem("aoh2_gif_key", key); else localStorage.removeItem("aoh2_gif_key");
+    loadTrendingGifs();
+}
+function toggleGifSettings() {
+    document.getElementById("gif-settings").classList.toggle("hidden");
+}
+(function initGifSettingsUI() {
+    const s = getGifSettings();
+    document.getElementById("gif-provider-select").value = s.provider;
+    document.getElementById("gif-apikey-input").value = s.key;
+})();
+
 function toggleKiply() {
     emojiPopover.classList.remove('open');
     const opening = !kiplyPicker.classList.contains('open');
@@ -837,39 +931,80 @@ function toggleKiply() {
 let kiplyTimeout;
 function searchKiply(query) {
     clearTimeout(kiplyTimeout);
-    kiplyTimeout = setTimeout(async () => {
+    kiplyTimeout = setTimeout(() => {
         if (query.trim() === "") { loadTrendingGifs(); return; }
-        await runGifQuery(`https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=LIVDSRZULELA&limit=10`);
+        runGifQuery(query.trim());
     }, 450);
 }
 
-function loadTrendingGifs() {
-    runGifQuery(`https://g.tenor.com/v1/trending?key=LIVDSRZULELA&limit=10`);
+function loadTrendingGifs() { runGifQuery(null); }
+
+function buildGifUrl(query) {
+    const s = getGifSettings();
+    const key = s.key || (s.provider === "giphy" ? GIF_DEFAULT.key : "");
+    if (s.provider === "tenor") {
+        if (!key) return null; // Tenor v2 exige chave própria, não existe chave pública compartilhável
+        return query
+            ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&client_key=aoh2_web&limit=12&contentfilter=medium`
+            : `https://tenor.googleapis.com/v2/featured?key=${key}&client_key=aoh2_web&limit=12&contentfilter=medium`;
+    }
+    // Giphy (padrão)
+    return query
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(query)}&limit=12&rating=pg-13`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${key}&limit=12&rating=pg-13`;
 }
 
-async function runGifQuery(url) {
+// Normaliza a resposta de qualquer provedor pra {thumb, full}
+function normalizeGifResults(provider, json) {
+    if (provider === "tenor") {
+        return (json.results || []).map(g => ({
+            thumb: g.media_formats?.tinygif?.url || g.media_formats?.gif?.url,
+            full: g.media_formats?.gif?.url
+        })).filter(g => g.thumb && g.full);
+    }
+    return (json.data || []).map(g => ({
+        thumb: g.images?.fixed_width_small?.url || g.images?.fixed_width?.url,
+        full: g.images?.original?.url
+    })).filter(g => g.thumb && g.full);
+}
+
+let gifRequestSeq = 0;
+async function runGifQuery(query) {
     const results = document.getElementById('kiply-results');
     results.innerHTML = Array(6).fill('<div class="kiply-skel"></div>').join("");
+    const s = getGifSettings();
+    const url = buildGifUrl(query);
+    const seq = ++gifRequestSeq;
+
+    if (!url) {
+        results.innerHTML = `<div class="kiply-note">O Tenor v2 exige uma chave própria (grátis).<br><br><a href="#" onclick="toggleGifSettings();return false;" style="color:var(--brass-bright);">Configurar chave de API →</a></div>`;
+        return;
+    }
+
     try {
         const res = await fetch(url);
+        if (seq !== gifRequestSeq) return; // resposta antiga, ignora
         const json = await res.json();
+        const gifs = normalizeGifResults(s.provider, json);
         results.innerHTML = "";
-        if (!json.results || json.results.length === 0) {
-            results.innerHTML = `<div class="kiply-note">Nenhum GIF encontrado.</div>`;
+        if (gifs.length === 0) {
+            results.innerHTML = `<div class="kiply-note">Nenhum GIF encontrado.<br><br><a href="#" onclick="toggleGifSettings();return false;" style="color:var(--brass-bright);">Configurar chave de API →</a></div>`;
             return;
         }
-        json.results.forEach(gif => {
+        gifs.forEach(gif => {
             const img = document.createElement("img");
             img.loading = "lazy";
-            img.src = gif.media[0].tinygif.url;
+            img.src = gif.thumb;
+            img.alt = "GIF";
             img.onclick = () => {
-                sendChat(`KIPLY_GIF|${gif.media[0].gif.url}`);
+                sendChat(`KIPLY_GIF|${gif.full}`);
                 kiplyPicker.classList.remove('open');
             };
             results.appendChild(img);
         });
     } catch (e) {
-        results.innerHTML = `<div class="kiply-note">Erro ao buscar GIFs. Tente novamente.</div>`;
+        if (seq !== gifRequestSeq) return;
+        results.innerHTML = `<div class="kiply-note">Erro ao buscar GIFs.<br><br><a href="#" onclick="toggleGifSettings();return false;" style="color:var(--brass-bright);">Configurar chave de API →</a></div>`;
     }
 }
 
