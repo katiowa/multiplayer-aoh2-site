@@ -633,6 +633,8 @@ function setStatus(text, colorClass) {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 let socket;
+const soundCache = {};
+let currentMusicAudio = null;
 let lobbyInterval;
 let lastObjectURL = null;
 let reconnectAttempts = 0;
@@ -817,6 +819,45 @@ function handleTextProtocol(msg) {
         if (!isInputPhase) setStatus("Processando IA...", "yellow");
         else if (currentTurnId === myPlayerId) setStatus("Sua vez de jogar!", "green");
         else setStatus("Aguardando outro comandante", "red");
+    }
+    else if (msg.startsWith("PLAY_SOUND:")) {
+        const parts = msg.split(":");
+        const id = parts[1];
+        const vol = parseFloat(parts[2]);
+        const b64 = parts.slice(3).join(":"); // Em caso remoto da string b64 quebrar no split
+        
+        if (!soundCache[id]) {
+            soundCache[id] = "data:audio/ogg;base64," + b64;
+        }
+        const audio = new Audio(soundCache[id]);
+        audio.volume = Math.min(Math.max(vol, 0), 1);
+        audio.play().catch(e => {}); // catch previne log de erro do Autoplay block antes do usuário clicar na tela
+    }
+    else if (msg.startsWith("PLAY_MUSIC:")) {
+        const parts = msg.split(":");
+        const title = parts[1];
+        const vol = parseFloat(parts[2]);
+        const b64 = parts.slice(3).join(":");
+
+        if (currentMusicAudio) {
+            currentMusicAudio.pause();
+        }
+
+        currentMusicAudio = new Audio("data:audio/ogg;base64," + b64);
+        currentMusicAudio.volume = Math.min(Math.max(vol, 0), 1);
+        currentMusicAudio.loop = false;
+        currentMusicAudio.play().catch(e => {});
+    }
+    else if (msg.startsWith("STOP_MUSIC")) {
+        if (currentMusicAudio) {
+            currentMusicAudio.pause();
+        }
+    }
+    else if (msg.startsWith("SET_MUSIC_VOL:")) {
+        const vol = parseFloat(msg.split(":")[1]);
+        if (currentMusicAudio) {
+            currentMusicAudio.volume = Math.min(Math.max(vol, 0), 1);
+        }
     }
 }
 
