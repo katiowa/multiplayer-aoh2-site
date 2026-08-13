@@ -788,13 +788,13 @@ function initWebSocket() {
         setStatus("Entrando no Lobby...", "green");
         socket.send(`AUTH:${sessionToken}:${myNick}`);
 
-        window.versionMatched = false;
+        /* window.versionMatched = false;
         clearTimeout(window.versionCheckTimer);
         window.versionCheckTimer = setTimeout(() => {
             if (!window.versionMatched) {
                 document.getElementById('update-modal').classList.remove('hidden');
             }
-        }, 5000);
+        }, 5000); */
 
         clearInterval(lobbyInterval);
         // Mantemos o polling do lobby ativo mesmo após restaurar a sessão,
