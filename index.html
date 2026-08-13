@@ -438,6 +438,16 @@ canvas{ max-width:100%; max-height:100%; object-fit:contain; position:relative; 
   </div>
 </div>
 
+<!-- 3. MODAL DE VERSÃO INCOMPATÍVEL -->
+<div class="modal-overlay hidden" id="update-modal" style="z-index: 10000;">
+  <div class="modal-box">
+    <div class="modal-eyebrow">Aviso de Sistema</div>
+    <h2>⚠️ Desconexão de Versão ❌</h2>
+    <p>Seu cliente web está desatualizado, ou o Host está rodando uma versão antiga do mod. Atualize para evitar dessincronização.</p>
+    <button class="btn btn-brass" onclick="window.location.href='https://drive.google.com/file/d/1aXq6sfF1A0kdKgyAtbri4THfCjMM65wd/view'" style="width:100%;">Baixar Versão mais Recente</button>
+  </div>
+</div>
+
 <!-- NAVEGAÇÃO ESQUERDA -->
 <div class="left-nav">
   <div class="brand-mark" title="AoH2">AoH</div>
@@ -778,6 +788,14 @@ function initWebSocket() {
         setStatus("Entrando no Lobby...", "green");
         socket.send(`AUTH:${sessionToken}:${myNick}`);
 
+        window.versionMatched = false;
+        clearTimeout(window.versionCheckTimer);
+        window.versionCheckTimer = setTimeout(() => {
+            if (!window.versionMatched) {
+                document.getElementById('update-modal').classList.remove('hidden');
+            }
+        }, 5000);
+
         clearInterval(lobbyInterval);
         // Mantemos o polling do lobby ativo mesmo após restaurar a sessão,
         // assim a lista de nações fica sempre atualizada pra todo mundo.
@@ -824,6 +842,19 @@ function initWebSocket() {
 }
 
 function handleTextProtocol(msg) {
+    if (msg.startsWith("VERSION_CHECK:")) {
+        const hostVersion = msg.substring(14);
+        window.versionMatched = true; // TEMPORÁRIO - Motivo: evitar com que usuários legítimos que ainda não receberam essa atualização específica sejam prejudicados.
+        clearTimeout(window.versionCheckTimer); // TEMPORÁRIO - Motivo: evitar com que usuários legítimos que ainda não receberam essa atualização específica sejam prejudicados.
+        /* if (hostVersion === "0.0.2v") {
+            window.versionMatched = true;
+            clearTimeout(window.versionCheckTimer);
+        } else {
+            document.getElementById('update-modal').classList.remove('hidden');
+        } */
+        return; // Retorna para não processar o resto atoa
+    }
+    
     if (msg.startsWith("LOBBY_LIST:")) {
         buildLobby(msg.substring(11));
     }
